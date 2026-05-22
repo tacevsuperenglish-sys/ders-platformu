@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script type="module">
   // Firebase v10 modular SDK
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -17,15 +17,14 @@
   // 1. FIREBASE YAPILANDIRMASI - Buraya kendi config'ini yapıştır
   // ====================================================================
   const firebaseConfig = {
-    apiKey: "AIzaSyAfGhzmJ9QV4bgy6IdECJs1e_pIK81oAIk",
-    authDomain: "ders-platformu-bf4f1.firebaseapp.com",
-    databaseURL: "https://ders-platformu-bf4f1-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "ders-platformu-bf4f1",
-    storageBucket: "ders-platformu-bf4f1.firebasestorage.app",
-    messagingSenderId: "518648695233",
-    appId: "1:518648695233:web:258c74b5b423d95e624740",
-    measurementId: "G-19YCGPSQ4E"
-};
+    apiKey: "BURAYA_API_KEY",
+    authDomain: "PROJE.firebaseapp.com",
+    databaseURL: "https://PROJE-default-rtdb.firebaseio.com",
+    projectId: "PROJE-ID",
+    storageBucket: "PROJE.appspot.com",
+    messagingSenderId: "XXX",
+    appId: "XXX"
+  };
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
@@ -614,41 +613,86 @@ async function changePage(newPage) {
 }
 
 // ====================================================================
-// VIDEO (Daily.co) - Tek iframe ile basit yöntem
+// VIDEO (LiveKit) - Resmi, kart yok, ölçeklenebilir
 // ====================================================================
 async function setupVideo() {
-  // create-room.js'den oda URL al (önceki mesajdaki backend)
   try {
-    // Eğer aynı Vercel projesinde backend varsa:
-    // const r = await fetch('/api/create-room', { method: 'POST' });
-    // const { url } = await r.json();
-
-    // Basit demo için: kullanıcının kendi webcam'i kullanılabilir
-    // Gerçek senaryoda Daily iframe'i kameralara gömeceğiz.
-    // Şimdilik yer tutucu kamera (kullanıcının kendi medyası).
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    const myVideo = document.createElement('video');
-    myVideo.srcObject = stream;
-    myVideo.autoplay = true;
-    myVideo.muted = true;
-    myVideo.playsInline = true;
-    myVideo.style.objectFit = 'cover';
-
-    const targetCam = state.role === 'student' ? 'cam-student' : 'cam-teacher';
-    document.getElementById(targetCam).appendChild(myVideo);
-
-    // NOT: Karşı taraf videosu için Daily.co entegrasyonu lazım.
-    // Aşağıda Daily kullanımı için yorum:
-    /*
-    const callFrame = window.DailyIframe.createFrame(document.getElementById('cam-student'), {
-      iframeStyle: { width: '100%', height: '100%', border: '0' },
-      showLeaveButton: false
+    // 1. Backend'den token al
+    const tokenRes = await fetch('/api/livekit-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        room: `super-english-${state.room}`,
+        identity: `${state.role}-${state.name}-${Date.now()}`,
+        name: state.name
+      })
     });
-    await callFrame.join({ url: 'https://YOUR_DOMAIN.daily.co/' + state.room, userName: state.name });
-    */
+    const data = await tokenRes.json();
+    if (!data.token) {
+      throw new Error(data.error || 'Token alınamadı');
+    }
+
+    // 2. LiveKit Room oluştur
+    const room = new LivekitClient.Room({
+      adaptiveStream: true,
+      dynacast: true
+    });
+
+    // 3. Karşı taraftan video/ses geldiğinde
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      if (track.kind === 'video') {
+        attachRemoteVideo(track, participant);
+      } else if (track.kind === 'audio') {
+        const audioEl = track.attach();
+        audioEl.style.display = 'none';
+        document.body.appendChild(audioEl);
+      }
+    });
+
+    // 4. Bağlan
+    await room.connect(data.wsUrl, data.token);
+
+    // 5. Kendi kamera ve mikrofonunu aç
+    await room.localParticipant.enableCameraAndMicrophone();
+
+    // 6. Kendi videonu göster
+    const pubs = Array.from(room.localParticipant.videoTrackPublications.values());
+    if (pubs.length > 0 && pubs[0].track) {
+      attachLocalVideo(pubs[0].track);
+    }
+
+    window.lkRoom = room;
+    console.log('LiveKit bağlandı, oda:', `super-english-${state.room}`);
   } catch (e) {
-    console.warn('Kamera erişimi yok:', e);
+    console.error('LiveKit hatası:', e);
+    alert('Kamera başlatılamadı: ' + e.message);
   }
+}
+
+// Karşı tarafın videosunu doğru kutuya yerleştir
+function attachRemoteVideo(track, participant) {
+  const isTeacher = participant.identity.startsWith('teacher-');
+  const targetId = isTeacher ? 'cam-teacher' : 'cam-student';
+  const container = document.getElementById(targetId);
+  container.querySelectorAll('video').forEach(v => v.remove());
+  const videoEl = track.attach();
+  videoEl.style.width = '100%';
+  videoEl.style.height = '100%';
+  videoEl.style.objectFit = 'cover';
+  container.appendChild(videoEl);
+}
+
+// Kendi videonu kendi kutuna koy
+function attachLocalVideo(track) {
+  const targetId = state.role === 'teacher' ? 'cam-teacher' : 'cam-student';
+  const container = document.getElementById(targetId);
+  container.querySelectorAll('video').forEach(v => v.remove());
+  const videoEl = track.attach();
+  videoEl.style.width = '100%';
+  videoEl.style.height = '100%';
+  videoEl.style.objectFit = 'cover';
+  videoEl.muted = true;
+  container.appendChild(videoEl);
 }
 
 // ====================================================================
