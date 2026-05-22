@@ -3,21 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>İngilizce Dersi - İnteraktif</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
-<script type="module">
-  // Firebase v10 modular SDK
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, update, onValue, get, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+<title>Canlı Ders | TACEV Super English</title>
 
-  // ====================================================================
-  // 1. FIREBASE YAPILANDIRMASI - Buraya kendi config'ini yapıştır
-  // ====================================================================
+<!-- Tailwind CSS + Font Awesome (style guide standardı) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- LiveKit (kameralı görüşme) -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
+
+<!-- Firebase v10 (anlık senkron) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, set, update, onValue, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
   const firebaseConfig = {
-   apiKey: "AIzaSyAfGhzmJ9QV4bgy6IdECJs1e_pIK81oAIk",
+    apiKey: "AIzaSyAfGhzmJ9QV4bgy6IdECJs1e_pIK81oAIk",
     authDomain: "ders-platformu-bf4f1.firebaseapp.com",
     databaseURL: "https://ders-platformu-bf4f1-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "ders-platformu-bf4f1",
@@ -29,44 +30,61 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-
-  // Tüm Firebase fonksiyonlarını global yap (script bloğundan erişmek için)
   window.fb = { db, ref, set, update, onValue, get, child };
 </script>
 
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --panel: #14141c;
-    --panel-2: #1c1c28;
-    --ink: #f5f0e8;
-    --ink-dim: #9a9aa8;
-    --accent: #ffb347;
-    --accent-2: #6ee7d7;
-    --correct: #4ade80;
-    --wrong: #f87171;
-    --line: rgba(255,255,255,0.08);
-    --font-display: 'Fraunces', Georgia, serif;
-    --font-body: 'Inter Tight', system-ui, sans-serif;
+  /* ============ STYLE GUIDE: TACEV Super English ============ */
+
+  /* Custom scrollbar (style guide standard) */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  /* Hero gradient (premium — login, header) */
+  .hero-gradient {
+    background: linear-gradient(45deg, #0075e5 0%, #eb0bc4 75%, #eb0bc4 100%);
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
+  /* Body background — marka renkleriyle dokulu, premium */
   body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--font-body);
     min-height: 100vh;
-    overflow: hidden;
+    background-color: #f8fafc;
     background-image:
-      radial-gradient(at 80% 10%, rgba(255,179,71,0.08) 0px, transparent 50%),
-      radial-gradient(at 10% 90%, rgba(110,231,215,0.06) 0px, transparent 50%);
+      /* Yumuşak renkli ışıklar — marka renklerinden esinli */
+      radial-gradient(at 15% 20%, rgba(0, 117, 229, 0.12) 0px, transparent 50%),
+      radial-gradient(at 85% 10%, rgba(235, 11, 196, 0.10) 0px, transparent 50%),
+      radial-gradient(at 75% 85%, rgba(99, 102, 241, 0.10) 0px, transparent 50%),
+      radial-gradient(at 20% 90%, rgba(168, 85, 247, 0.08) 0px, transparent 50%),
+      /* İnce ızgara doku */
+      linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    background-attachment: fixed;
   }
 
-  .app {
+  /* Role tag'leri (RBAC) */
+  .tag-yonetici { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+  .tag-asistan  { background-color: #e0f2fe; color: #075985; border: 1px solid #38bdf8; }
+  .tag-veli     { background-color: #dcfce7; color: #166534; border: 1px solid #4ade80; }
+
+  /* Loader (style guide standard) */
+  .loader {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #4f46e5;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Sayfa düzeni (ana app) */
+  .app-grid {
     display: grid;
-    grid-template-columns: 1fr 340px;
-    grid-template-rows: 64px 1fr 80px;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto 1fr auto;
     grid-template-areas:
       "header header"
       "main cameras"
@@ -75,416 +93,340 @@
     gap: 16px;
     padding: 16px;
   }
-
-  header {
-    grid-area: header;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    background: var(--panel);
-    border-radius: 16px;
-    border: 1px solid var(--line);
-  }
-  .logo {
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 22px;
-    font-style: italic;
-    letter-spacing: -0.02em;
-  }
-  .logo span { color: var(--accent); }
-  .role-badge {
-    padding: 6px 14px;
-    border-radius: 100px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .role-badge.teacher { color: var(--accent); border-color: rgba(255,179,71,0.3); }
-  .role-badge.student { color: var(--accent-2); border-color: rgba(110,231,215,0.3); }
-
-  main {
-    grid-area: main;
-    background: var(--panel);
-    border-radius: 16px;
-    border: 1px solid var(--line);
-    padding: 48px 56px;
-    overflow-y: auto;
-    position: relative;
-  }
-  .page-tag {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 13px;
-    color: var(--ink-dim);
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-  }
-  .activity-title {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 38px;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    margin-bottom: 8px;
-  }
-  .activity-title em { color: var(--accent); font-style: italic; }
-  .activity-instruction {
-    color: var(--ink-dim);
-    font-size: 16px;
-    margin-bottom: 36px;
+  @media (max-width: 768px) {
+    .app-grid {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto 1fr auto;
+      grid-template-areas:
+        "header"
+        "cameras"
+        "main"
+        "footer";
+    }
+    .cam-wrap { height: 140px !important; }
   }
 
   /* Kameralar */
-  .cameras {
-    grid-area: cameras;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
   .cam-wrap {
-    flex: 1;
     background: #000;
     border-radius: 16px;
     overflow: hidden;
     position: relative;
-    border: 1px solid var(--line);
+    border: 2px solid white;
+    box-shadow: 0 8px 24px rgba(67, 56, 202, 0.15), 0 2px 6px rgba(235, 11, 196, 0.08);
   }
+  .cam-wrap video { width: 100%; height: 100%; object-fit: cover; }
   .cam-label {
     position: absolute;
     bottom: 10px;
     left: 10px;
-    background: rgba(0,0,0,0.6);
+    background: rgba(30, 27, 75, 0.85);
     backdrop-filter: blur(8px);
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     z-index: 2;
   }
-  .cam-wrap iframe, .cam-wrap video { width: 100%; height: 100%; }
 
-  /* Footer kontrolleri */
-  footer {
-    grid-area: footer;
-    background: var(--panel);
-    border-radius: 16px;
-    border: 1px solid var(--line);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-  }
-  .progress {
-    flex: 1;
-    margin: 0 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .progress-bar {
-    flex: 1;
-    height: 6px;
-    background: var(--panel-2);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    width: 0%;
-    transition: width 0.4s cubic-bezier(0.65, 0, 0.35, 1);
-  }
-  .page-count { font-family: var(--font-display); font-weight: 600; font-size: 18px; min-width: 70px; }
-  .nav-btn {
-    background: var(--accent);
-    color: #0a0a0f;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 10px;
-    font-family: var(--font-body);
-    font-weight: 600;
-    font-size: 15px;
-    cursor: pointer;
-    transition: transform 0.15s, opacity 0.15s;
-  }
-  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  .nav-btn:hover:not(:disabled) { transform: translateY(-1px); }
-  .nav-btn.secondary { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
-
-  /* ============ ETKİNLİK STİLLERİ ============ */
-
-  /* Boşluk doldurma */
-  .fill-text {
-    font-family: var(--font-display);
-    font-size: 28px;
-    line-height: 1.7;
-    font-weight: 400;
-  }
+  /* Etkinlik girdileri (boşluk doldurma) */
   .fill-input {
     display: inline-block;
-    width: 140px;
-    padding: 4px 10px;
+    min-width: 120px;
+    padding: 4px 12px;
     margin: 0 4px;
-    background: var(--panel-2);
+    background: #eef2ff;
     border: none;
-    border-bottom: 2px solid var(--accent);
-    color: var(--ink);
-    font-family: var(--font-display);
-    font-size: 28px;
+    border-bottom: 2px solid #6366f1;
+    border-radius: 8px 8px 0 0;
+    color: #312e81;
+    font-weight: 700;
+    font-size: 18px;
     text-align: center;
     transition: all 0.2s;
   }
-  .fill-input:focus { outline: none; background: rgba(255,179,71,0.1); }
-  .fill-input.correct { border-color: var(--correct); color: var(--correct); background: rgba(74,222,128,0.1); }
-  .fill-input.wrong { border-color: var(--wrong); color: var(--wrong); background: rgba(248,113,113,0.1); }
+  .fill-input:focus { outline: none; background: #e0e7ff; }
+  .fill-input.correct {
+    border-color: #10b981;
+    background: #ecfdf5;
+    color: #065f46;
+  }
+  .fill-input.wrong {
+    border-color: #ef4444;
+    background: #fef2f2;
+    color: #991b1b;
+  }
 
   /* Çoktan seçmeli */
-  .question { font-family: var(--font-display); font-size: 26px; line-height: 1.3; margin-bottom: 24px; font-weight: 500; }
-  .choices { display: grid; gap: 12px; }
-  .choice {
-    padding: 18px 24px;
-    background: var(--panel-2);
-    border: 2px solid var(--line);
-    border-radius: 12px;
-    cursor: pointer;
+  .choice-btn {
     transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 16px;
   }
-  .choice:hover { border-color: var(--accent); transform: translateX(4px); }
-  .choice .letter {
-    width: 32px;
-    height: 32px;
-    background: var(--bg);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-family: var(--font-display);
-    color: var(--accent);
+  .choice-btn:hover {
+    border-color: #6366f1;
+    transform: translateX(4px);
+    background: #eef2ff;
   }
-  .choice.selected { border-color: var(--accent); background: rgba(255,179,71,0.08); }
-  .choice.correct { border-color: var(--correct); background: rgba(74,222,128,0.1); }
-  .choice.correct .letter { color: var(--correct); }
-  .choice.wrong { border-color: var(--wrong); background: rgba(248,113,113,0.1); }
-  .choice.wrong .letter { color: var(--wrong); }
+  .choice-btn.selected {
+    border-color: #6366f1;
+    background: #eef2ff;
+  }
+  .choice-btn.correct {
+    border-color: #10b981;
+    background: #ecfdf5;
+  }
+  .choice-btn.wrong {
+    border-color: #ef4444;
+    background: #fef2f2;
+  }
 
   /* True/False */
-  .tf-statement { font-family: var(--font-display); font-size: 30px; line-height: 1.3; margin-bottom: 36px; font-style: italic; }
-  .tf-buttons { display: flex; gap: 16px; }
-  .tf-btn {
-    flex: 1;
-    padding: 28px;
-    border-radius: 14px;
-    border: 2px solid var(--line);
-    background: var(--panel-2);
-    color: var(--ink);
-    cursor: pointer;
-    font-family: var(--font-display);
-    font-size: 24px;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
+  .tf-btn { transition: all 0.2s; }
   .tf-btn:hover { transform: scale(1.02); }
-  .tf-btn[data-val="true"]:hover { border-color: var(--correct); }
-  .tf-btn[data-val="false"]:hover { border-color: var(--wrong); }
-  .tf-btn.selected[data-val="true"] { background: rgba(74,222,128,0.15); border-color: var(--correct); color: var(--correct); }
-  .tf-btn.selected[data-val="false"] { background: rgba(248,113,113,0.15); border-color: var(--wrong); color: var(--wrong); }
-  .tf-feedback { margin-top: 20px; font-size: 18px; font-family: var(--font-display); font-style: italic; }
-  .tf-feedback.show.correct { color: var(--correct); }
-  .tf-feedback.show.wrong { color: var(--wrong); }
+  .tf-btn.selected-true {
+    border-color: #10b981;
+    background: #ecfdf5;
+    color: #065f46;
+  }
+  .tf-btn.selected-false {
+    border-color: #ef4444;
+    background: #fef2f2;
+    color: #991b1b;
+  }
 
-  /* Sürükle-bırak eşleştirme */
-  .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
-  .match-col { display: flex; flex-direction: column; gap: 12px; }
-  .col-title { font-family: var(--font-display); font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-dim); margin-bottom: 8px; }
+  /* Sürükle-bırak */
   .draggable {
-    padding: 14px 18px;
-    background: var(--panel-2);
-    border: 2px solid var(--line);
-    border-radius: 10px;
-    cursor: grab;
-    font-size: 16px;
     transition: all 0.15s;
+    cursor: grab;
   }
-  .draggable:hover { border-color: var(--accent); }
+  .draggable:active { cursor: grabbing; }
   .draggable.dragging { opacity: 0.4; }
-  .drop-zone {
-    padding: 14px 18px;
-    background: var(--bg);
-    border: 2px dashed var(--line);
-    border-radius: 10px;
-    min-height: 50px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 16px;
+  .drop-zone { transition: all 0.15s; }
+  .drop-zone.over {
+    border-color: #6366f1;
+    background: #eef2ff;
   }
-  .drop-zone .target-word { color: var(--ink-dim); font-style: italic; flex: 1; }
-  .drop-zone.over { border-color: var(--accent); background: rgba(255,179,71,0.05); }
-  .drop-zone.filled { border-style: solid; border-color: var(--correct); background: rgba(74,222,128,0.05); }
-  .drop-zone .dropped { background: var(--accent); color: var(--bg); padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+  .drop-zone.filled {
+    border-style: solid;
+    border-color: #10b981;
+    background: #ecfdf5;
+  }
+  .drop-zone.wrong {
+    border-color: #ef4444;
+    background: #fef2f2;
+  }
 
   /* Resme tıklama */
-  .image-area {
-    position: relative;
-    background: linear-gradient(135deg, #2a2a3a, #1a1a24);
-    border-radius: 12px;
-    height: 360px;
-    overflow: hidden;
-    cursor: crosshair;
-    border: 1px solid var(--line);
-  }
-  .scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 120px; }
   .clickable-spot {
     position: absolute;
-    width: 70px;
-    height: 70px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
     border: 2px solid transparent;
     cursor: pointer;
     transition: all 0.2s;
   }
-  .clickable-spot:hover { border-color: var(--accent); background: rgba(255,179,71,0.15); }
-  .clickable-spot.clicked.correct { border-color: var(--correct); background: rgba(74,222,128,0.25); }
-  .clickable-spot.clicked.wrong { border-color: var(--wrong); background: rgba(248,113,113,0.25); }
-
-  /* Yazma alanı */
-  .writing-prompt { font-family: var(--font-display); font-style: italic; font-size: 22px; color: var(--ink-dim); margin-bottom: 16px; padding-left: 16px; border-left: 3px solid var(--accent); }
-  .writing-area {
-    width: 100%;
-    min-height: 220px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 20px;
-    color: var(--ink);
-    font-family: var(--font-body);
-    font-size: 17px;
-    line-height: 1.6;
-    resize: vertical;
+  .clickable-spot:hover {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.15);
   }
-  .writing-area:focus { outline: none; border-color: var(--accent); }
-  .word-count { color: var(--ink-dim); font-size: 13px; margin-top: 8px; text-align: right; }
-
-  /* Cursor başkasının (öğretmen/öğrenci) */
-  .remote-cursor {
-    position: fixed;
-    width: 20px;
-    height: 20px;
-    pointer-events: none;
-    z-index: 9999;
-    transition: transform 0.1s linear;
+  .clickable-spot.clicked-correct {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.25);
+  }
+  .clickable-spot.clicked-wrong {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.25);
   }
 
-  /* Lobi */
-  .lobby {
-    position: fixed; inset: 0;
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 24px;
-    z-index: 100;
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
   }
-  .lobby h1 { font-family: var(--font-display); font-size: 64px; font-style: italic; font-weight: 800; letter-spacing: -0.03em; }
-  .lobby h1 em { color: var(--accent); }
-  .lobby input, .lobby select {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    padding: 14px 20px;
-    border-radius: 10px;
-    color: var(--ink);
-    font-family: var(--font-body);
-    font-size: 16px;
-    min-width: 320px;
-  }
-  .lobby button {
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    padding: 14px 36px;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 16px;
-    cursor: pointer;
-  }
-
-  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .shake { animation: shake 0.3s; }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in-up { animation: fadeInUp 0.4s ease-out; }
 </style>
 </head>
-<body>
+<body class="font-sans text-gray-800">
 
-<!-- ============ LOBİ ============ -->
-<div class="lobby" id="lobby">
-  <h1>Ders<em>Akışı</em></h1>
-  <select id="role-select">
-    <option value="student">Öğrenci olarak gir</option>
-    <option value="teacher">Öğretmen olarak gir</option>
-  </select>
-  <input id="name-input" type="text" placeholder="Adınız" value="">
-  <input id="room-input" type="text" placeholder="Ders kodu (örn: ders-101)" value="ders-101">
-  <button id="enter-btn">Derse Gir</button>
-  <p style="color: var(--ink-dim); font-size: 13px; max-width: 400px; text-align: center;">
-    Aynı ders kodunu kullanan öğretmen + öğrenciler aynı sınıfta buluşur. Tüm tıklamalar anlık olarak senkron.
-  </p>
+<!-- ============ LOBI (GIRIŞ EKRANI) ============ -->
+<div id="lobby" class="fixed inset-0 bg-white flex items-center justify-center p-4 md:p-6 z-50">
+  <div class="absolute inset-4 md:inset-6 hero-gradient rounded-[40px]"></div>
+  <div class="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+
+    <!-- Header -->
+    <div class="hero-gradient text-white p-6 text-center">
+      <div class="w-16 h-16 bg-white/15 backdrop-blur border border-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+        <i class="fa-solid fa-graduation-cap text-3xl"></i>
+      </div>
+      <h1 class="text-2xl font-black mb-1">TACEV Super English</h1>
+      <p class="text-indigo-200 text-sm">Canlı Ders Platformu</p>
+    </div>
+
+    <!-- Form -->
+    <div class="p-6 space-y-4">
+
+      <!-- Rol seçimi -->
+      <div>
+        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Derse Hangi Rolle Katılacaksınız?</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="role-student" class="role-option border-2 border-indigo-200 bg-indigo-50 rounded-xl p-4 text-center transition hover:border-indigo-400">
+            <i class="fa-solid fa-user-graduate text-2xl text-indigo-600 mb-2"></i>
+            <p class="font-black text-sm text-indigo-900">Öğrenci</p>
+          </button>
+          <button type="button" id="role-teacher" class="role-option border-2 border-gray-200 bg-white rounded-xl p-4 text-center transition hover:border-indigo-400">
+            <i class="fa-solid fa-chalkboard-user text-2xl text-gray-400 mb-2"></i>
+            <p class="font-black text-sm text-gray-600">Öğretmen</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- İsim -->
+      <div>
+        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
+          <i class="fa-solid fa-id-card mr-1"></i> Adınız
+        </label>
+        <input id="name-input" type="text" placeholder="Ad Soyad"
+               class="w-full border border-gray-300 rounded-lg p-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition">
+      </div>
+
+      <!-- Ders kodu -->
+      <div>
+        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
+          <i class="fa-solid fa-key mr-1"></i> Ders Kodu
+        </label>
+        <input id="room-input" type="text" placeholder="örn: ders-101" value="ders-101"
+               class="w-full border border-gray-300 rounded-lg p-3 text-sm font-mono outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition">
+      </div>
+
+      <!-- Giriş butonu -->
+      <button id="enter-btn"
+              class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 rounded-lg transition shadow-md flex justify-center items-center gap-2 text-sm">
+        <i class="fa-solid fa-video"></i> Derse Katıl
+      </button>
+
+      <p class="text-[11px] text-gray-500 text-center pt-2">
+        Aynı ders koduyla giren öğretmen ve öğrenciler aynı sınıfta buluşur. Tüm tıklamalar anlık olarak senkron.
+      </p>
+    </div>
+  </div>
 </div>
 
 <!-- ============ ANA UYGULAMA ============ -->
-<div class="app" id="app" style="display:none;">
-  <header>
-    <div class="logo">Ders<span>Akışı</span></div>
-    <div id="role-badge" class="role-badge"></div>
+<div id="app" class="app-grid" style="display:none;">
+
+  <!-- HEADER -->
+  <header class="bg-white border border-gray-200 rounded-2xl shadow-sm flex items-center justify-between px-5 py-3" style="grid-area: header;">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 hero-gradient rounded-xl flex items-center justify-center">
+        <i class="fa-solid fa-graduation-cap text-white"></i>
+      </div>
+      <div>
+        <h1 class="font-black text-indigo-900 text-base leading-tight">TACEV Super English</h1>
+        <p class="text-[11px] text-gray-500" id="lesson-info">Canlı Ders</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Canlı göstergesi -->
+      <div class="bg-white px-3 py-1.5 rounded-lg border border-gray-200 flex items-center gap-2 text-xs font-bold text-gray-600">
+        <i class="fa-solid fa-circle-dot text-red-500 animate-pulse"></i> Canlı
+      </div>
+      <!-- Rol rozeti -->
+      <div id="role-badge" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider"></div>
+    </div>
   </header>
 
-  <main id="activity-area">
-    <!-- Etkinlikler buraya yüklenecek -->
+  <!-- ANA ETKİNLİK ALANI -->
+  <main class="relative bg-white border border-gray-200 rounded-2xl shadow-lg overflow-y-auto" style="grid-area: main;">
+    <!-- Köşe dekorasyonu -->
+    <div class="absolute top-0 right-0 w-64 h-64 pointer-events-none opacity-30" style="background: radial-gradient(circle at top right, rgba(235, 11, 196, 0.15), transparent 70%);"></div>
+    <div class="absolute bottom-0 left-0 w-64 h-64 pointer-events-none opacity-30" style="background: radial-gradient(circle at bottom left, rgba(0, 117, 229, 0.15), transparent 70%);"></div>
+    <div id="activity-area" class="relative z-10 p-6 md:p-10"></div>
   </main>
 
-  <div class="cameras">
-    <div class="cam-wrap" id="cam-student">
-      <span class="cam-label">Öğrenci</span>
-    </div>
-    <div class="cam-wrap" id="cam-teacher">
-      <span class="cam-label">Öğretmen</span>
-    </div>
-  </div>
+  <!-- KAMERALAR (sağ kolon) -->
+  <aside class="flex flex-col gap-3" style="grid-area: cameras;">
 
-  <footer>
-    <button class="nav-btn secondary" id="prev-btn">← Önceki</button>
-    <div class="progress">
-      <span class="page-count" id="page-count">1 / 6</span>
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <!-- Öğrenci kamerası -->
+    <div class="cam-wrap flex-1 min-h-[180px]" id="cam-student">
+      <span class="cam-label">
+        <i class="fa-solid fa-user-graduate mr-1"></i> Öğrenci
+      </span>
     </div>
-    <button class="nav-btn" id="next-btn">Sonraki →</button>
+
+    <!-- Öğretmen kamerası -->
+    <div class="cam-wrap flex-1 min-h-[180px]" id="cam-teacher">
+      <span class="cam-label">
+        <i class="fa-solid fa-chalkboard-user mr-1"></i> Öğretmen
+      </span>
+    </div>
+
+    <!-- Kontrol butonları -->
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-3 flex items-center justify-around">
+      <button id="toggle-mic" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Mikrofon">
+        <i class="fa-solid fa-microphone"></i>
+      </button>
+      <button id="toggle-cam" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Kamera">
+        <i class="fa-solid fa-video"></i>
+      </button>
+      <button id="leave-btn" class="w-11 h-11 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition" title="Dersten Ayrıl">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- FOOTER (sayfa kontrolü) -->
+  <footer class="bg-white border border-gray-200 rounded-2xl shadow-sm flex items-center justify-between px-5 py-3" style="grid-area: footer;">
+    <button id="prev-btn" class="text-xs bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-4 py-2 rounded-lg font-bold transition flex items-center gap-2">
+      <i class="fa-solid fa-arrow-left"></i> Önceki
+    </button>
+
+    <div class="flex-1 mx-6 flex items-center gap-3">
+      <span id="page-count" class="font-black text-sm text-indigo-900 whitespace-nowrap">1 / 6</span>
+      <div class="flex-1 bg-gray-200 rounded-full h-2">
+        <div id="progress-fill" class="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300" style="width: 16%"></div>
+      </div>
+    </div>
+
+    <button id="next-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md transition flex items-center gap-2">
+      Sonraki <i class="fa-solid fa-arrow-right"></i>
+    </button>
   </footer>
+</div>
+
+<!-- ============ HATA TOAST'I ============ -->
+<div id="error-toast" class="hidden fixed top-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3 max-w-md">
+  <i class="fa-solid fa-triangle-exclamation"></i>
+  <span id="error-text" class="font-bold text-sm">Hata</span>
+  <button onclick="document.getElementById('error-toast').classList.add('hidden')" class="ml-2">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
 </div>
 
 <script>
 // ====================================================================
-// DERS İÇERİĞİ - Buraya 20 sayfaya kadar etkinlik ekleyebilirsin
+// DERS İÇERİĞİ
 // ====================================================================
 const LESSON = [
   {
     type: 'fill',
-    title: 'Boşlukları <em>doldur</em>',
+    title: 'Boşlukları Doldur',
     instruction: 'Doğru fiil çekimini yazın',
     template: 'She ___ to school every day. He ___ coffee in the morning.',
     answers: ['goes', 'drinks']
   },
   {
     type: 'multiple',
-    title: '<em>Doğru</em> cevabı seç',
+    title: 'Doğru Cevabı Seç',
     instruction: 'Aşağıdakilerden hangisi doğrudur?',
     question: 'What ___ you do yesterday?',
     choices: ['do', 'did', 'does', 'doing'],
@@ -492,15 +434,15 @@ const LESSON = [
   },
   {
     type: 'truefalse',
-    title: 'Doğru mu <em>yanlış</em> mı?',
+    title: 'Doğru mu Yanlış mı?',
     instruction: 'Cümleyi okuyun ve karar verin',
     statement: '"I have been to Paris three times last year" cümlesi gramer açısından doğrudur.',
     correct: false,
-    explanation: 'Doğrusu: "I went to Paris three times last year" (geçmiş zaman ifadesi var)'
+    explanation: 'Doğrusu: "I went to Paris three times last year" — geçmiş zaman ifadesi var.'
   },
   {
     type: 'match',
-    title: 'Kelimeleri <em>eşleştir</em>',
+    title: 'Kelimeleri Eşleştir',
     instruction: 'İngilizce kelimeleri Türkçe karşılıklarıyla eşleştirin',
     pairs: [
       { en: 'wonderful', tr: 'harika' },
@@ -511,7 +453,7 @@ const LESSON = [
   },
   {
     type: 'image',
-    title: 'Resmi <em>incele</em>',
+    title: 'Resmi İncele',
     instruction: 'Sahnedeki "the cat" üzerine tıklayın',
     emoji: '🌳 🐱 🏠 🚗',
     spots: [
@@ -523,41 +465,95 @@ const LESSON = [
   },
   {
     type: 'writing',
-    title: '<em>Yaz</em> bakalım',
+    title: 'Yaz Bakalım',
     instruction: 'En sevdiğiniz mevsim hakkında 3-4 cümle yazın (İngilizce)',
     prompt: 'Tell me about your favourite season. Why do you like it?'
   }
 ];
 
 // ====================================================================
-// DURUM (state) - Firebase ile senkronize
+// STATE
 // ====================================================================
 let state = {
-  role: null,       // 'teacher' veya 'student'
+  role: 'student',
   name: '',
   room: '',
   currentPage: 0,
-  answers: {}       // { pageIndex: cevap_verisi }
+  answers: {}
 };
-
 let dbRoomRef = null;
+
+// ====================================================================
+// LOBI: ROL SEÇİMİ
+// ====================================================================
+function selectRole(role) {
+  state.role = role;
+  const sBtn = document.getElementById('role-student');
+  const tBtn = document.getElementById('role-teacher');
+
+  if (role === 'student') {
+    sBtn.classList.add('border-indigo-400', 'bg-indigo-50');
+    sBtn.classList.remove('border-gray-200', 'bg-white');
+    sBtn.querySelector('i').classList.add('text-indigo-600');
+    sBtn.querySelector('i').classList.remove('text-gray-400');
+    sBtn.querySelector('p').classList.add('text-indigo-900');
+    sBtn.querySelector('p').classList.remove('text-gray-600');
+
+    tBtn.classList.remove('border-indigo-400', 'bg-indigo-50');
+    tBtn.classList.add('border-gray-200', 'bg-white');
+    tBtn.querySelector('i').classList.remove('text-indigo-600');
+    tBtn.querySelector('i').classList.add('text-gray-400');
+    tBtn.querySelector('p').classList.remove('text-indigo-900');
+    tBtn.querySelector('p').classList.add('text-gray-600');
+  } else {
+    tBtn.classList.add('border-indigo-400', 'bg-indigo-50');
+    tBtn.classList.remove('border-gray-200', 'bg-white');
+    tBtn.querySelector('i').classList.add('text-indigo-600');
+    tBtn.querySelector('i').classList.remove('text-gray-400');
+    tBtn.querySelector('p').classList.add('text-indigo-900');
+    tBtn.querySelector('p').classList.remove('text-gray-600');
+
+    sBtn.classList.remove('border-indigo-400', 'bg-indigo-50');
+    sBtn.classList.add('border-gray-200', 'bg-white');
+    sBtn.querySelector('i').classList.remove('text-indigo-600');
+    sBtn.querySelector('i').classList.add('text-gray-400');
+    sBtn.querySelector('p').classList.remove('text-indigo-900');
+    sBtn.querySelector('p').classList.add('text-gray-600');
+  }
+}
+document.getElementById('role-student').onclick = () => selectRole('student');
+document.getElementById('role-teacher').onclick = () => selectRole('teacher');
+selectRole('student'); // Varsayılan
 
 // ====================================================================
 // LOBİYE GİRİŞ
 // ====================================================================
 document.getElementById('enter-btn').onclick = async () => {
-  state.role = document.getElementById('role-select').value;
-  state.name = document.getElementById('name-input').value.trim() || (state.role === 'teacher' ? 'Öğretmen' : 'Öğrenci');
+  state.name = document.getElementById('name-input').value.trim();
   state.room = document.getElementById('room-input').value.trim() || 'ders-101';
+
+  if (!state.name) {
+    showError('Lütfen adınızı girin');
+    return;
+  }
 
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('app').style.display = 'grid';
 
+  // Rol rozetini ayarla
   const badge = document.getElementById('role-badge');
-  badge.textContent = state.role === 'teacher' ? '👨‍🏫 Öğretmen' : '🎓 Öğrenci';
-  badge.classList.add(state.role);
+  if (state.role === 'teacher') {
+    badge.innerHTML = '<i class="fa-solid fa-chalkboard-user mr-1"></i> Öğretmen';
+    badge.classList.add('tag-asistan');
+  } else {
+    badge.innerHTML = '<i class="fa-solid fa-user-graduate mr-1"></i> Öğrenci';
+    badge.classList.add('tag-veli');
+  }
 
-  // Öğretmen değilse sayfa düğmelerini gizle
+  // Ders bilgisi
+  document.getElementById('lesson-info').textContent = `Ders: ${state.room} • ${state.name}`;
+
+  // Öğrenci sayfa düğmesini gizle
   if (state.role !== 'teacher') {
     document.getElementById('prev-btn').style.display = 'none';
     document.getElementById('next-btn').style.display = 'none';
@@ -572,28 +568,23 @@ document.getElementById('enter-btn').onclick = async () => {
 // FIREBASE SENKRON
 // ====================================================================
 async function setupFirebase() {
-  const { db, ref, onValue, set, get } = window.fb;
-  dbRoomRef = ref(db, `rooms/${state.room}`);
+  const { ref, onValue, set, get } = window.fb;
+  dbRoomRef = ref(window.fb.db, `rooms/${state.room}`);
 
-  // Oda yoksa başlangıç state'i yaz (sadece öğretmen)
   if (state.role === 'teacher') {
-    const snap = await window.fb.get(dbRoomRef);
+    const snap = await get(dbRoomRef);
     if (!snap.exists()) {
       await set(dbRoomRef, { currentPage: 0, answers: {}, createdAt: Date.now() });
     }
   }
 
-  // State değişikliklerini dinle
   onValue(dbRoomRef, (snap) => {
     const data = snap.val();
     if (!data) return;
-
-    // Sayfa değiştiyse, herkesi senkron et
     if (data.currentPage !== state.currentPage) {
       state.currentPage = data.currentPage;
       renderActivity();
     }
-    // Cevapları güncelle (UI üzerinde göster)
     if (data.answers && data.answers[state.currentPage]) {
       state.answers[state.currentPage] = data.answers[state.currentPage];
       applyAnswerToUI(state.currentPage, data.answers[state.currentPage]);
@@ -601,24 +592,24 @@ async function setupFirebase() {
   });
 }
 
-// Cevap yazma (her iki taraf da yazabilir, Firebase her şeyi yayar)
 async function syncAnswer(pageIndex, answerData) {
   const { update } = window.fb;
   await update(dbRoomRef, { [`answers/${pageIndex}`]: answerData });
 }
-
-// Sayfa değiştirme (sadece öğretmen)
 async function changePage(newPage) {
   const { update } = window.fb;
   await update(dbRoomRef, { currentPage: newPage });
 }
 
 // ====================================================================
-// VIDEO (LiveKit) - Resmi, kart yok, ölçeklenebilir
+// LIVEKIT VIDEO
 // ====================================================================
+let lkRoom = null;
+let micEnabled = true;
+let camEnabled = true;
+
 async function setupVideo() {
   try {
-    // 1. Backend'den token al
     const tokenRes = await fetch('/api/livekit-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -629,72 +620,79 @@ async function setupVideo() {
       })
     });
     const data = await tokenRes.json();
-    if (!data.token) {
-      throw new Error(data.error || 'Token alınamadı');
-    }
+    if (!data.token) throw new Error(data.error || 'Token alınamadı');
 
-    // 2. LiveKit Room oluştur
-    const room = new LivekitClient.Room({
-      adaptiveStream: true,
-      dynacast: true
-    });
+    lkRoom = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
 
-    // 3. Karşı taraftan video/ses geldiğinde
-    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-      if (track.kind === 'video') {
-        attachRemoteVideo(track, participant);
-      } else if (track.kind === 'audio') {
+    lkRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      if (track.kind === 'video') attachRemoteVideo(track, participant);
+      else if (track.kind === 'audio') {
         const audioEl = track.attach();
         audioEl.style.display = 'none';
         document.body.appendChild(audioEl);
       }
     });
 
-    // 4. Bağlan
-    await room.connect(data.wsUrl, data.token);
+    await lkRoom.connect(data.wsUrl, data.token);
+    await lkRoom.localParticipant.enableCameraAndMicrophone();
 
-    // 5. Kendi kamera ve mikrofonunu aç
-    await room.localParticipant.enableCameraAndMicrophone();
+    const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
+    if (pubs.length > 0 && pubs[0].track) attachLocalVideo(pubs[0].track);
 
-    // 6. Kendi videonu göster
-    const pubs = Array.from(room.localParticipant.videoTrackPublications.values());
-    if (pubs.length > 0 && pubs[0].track) {
-      attachLocalVideo(pubs[0].track);
-    }
-
-    window.lkRoom = room;
-    console.log('LiveKit bağlandı, oda:', `super-english-${state.room}`);
+    console.log('LiveKit bağlandı:', `super-english-${state.room}`);
   } catch (e) {
     console.error('LiveKit hatası:', e);
-    alert('Kamera başlatılamadı: ' + e.message);
+    showError('Kamera başlatılamadı: ' + e.message);
   }
 }
 
-// Karşı tarafın videosunu doğru kutuya yerleştir
 function attachRemoteVideo(track, participant) {
   const isTeacher = participant.identity.startsWith('teacher-');
   const targetId = isTeacher ? 'cam-teacher' : 'cam-student';
   const container = document.getElementById(targetId);
   container.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
-  videoEl.style.width = '100%';
-  videoEl.style.height = '100%';
-  videoEl.style.objectFit = 'cover';
   container.appendChild(videoEl);
 }
 
-// Kendi videonu kendi kutuna koy
 function attachLocalVideo(track) {
   const targetId = state.role === 'teacher' ? 'cam-teacher' : 'cam-student';
   const container = document.getElementById(targetId);
   container.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
-  videoEl.style.width = '100%';
-  videoEl.style.height = '100%';
-  videoEl.style.objectFit = 'cover';
   videoEl.muted = true;
   container.appendChild(videoEl);
 }
+
+// Mikrofon / Kamera toggle
+document.getElementById('toggle-mic').onclick = async () => {
+  if (!lkRoom) return;
+  micEnabled = !micEnabled;
+  await lkRoom.localParticipant.setMicrophoneEnabled(micEnabled);
+  const btn = document.getElementById('toggle-mic');
+  btn.innerHTML = micEnabled ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
+  btn.classList.toggle('bg-red-50', !micEnabled);
+  btn.classList.toggle('text-red-600', !micEnabled);
+  btn.classList.toggle('bg-indigo-50', micEnabled);
+  btn.classList.toggle('text-indigo-600', micEnabled);
+};
+document.getElementById('toggle-cam').onclick = async () => {
+  if (!lkRoom) return;
+  camEnabled = !camEnabled;
+  await lkRoom.localParticipant.setCameraEnabled(camEnabled);
+  const btn = document.getElementById('toggle-cam');
+  btn.innerHTML = camEnabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
+  btn.classList.toggle('bg-red-50', !camEnabled);
+  btn.classList.toggle('text-red-600', !camEnabled);
+  btn.classList.toggle('bg-indigo-50', camEnabled);
+  btn.classList.toggle('text-indigo-600', camEnabled);
+};
+document.getElementById('leave-btn').onclick = async () => {
+  if (confirm('Dersten ayrılmak istediğinizden emin misiniz?')) {
+    if (lkRoom) await lkRoom.disconnect();
+    location.reload();
+  }
+};
 
 // ====================================================================
 // ETKİNLİK RENDER
@@ -703,16 +701,41 @@ function renderActivity() {
   const page = LESSON[state.currentPage];
   const area = document.getElementById('activity-area');
 
-  // İlerleme çubuğu
   document.getElementById('page-count').textContent = `${state.currentPage + 1} / ${LESSON.length}`;
   document.getElementById('progress-fill').style.width = `${((state.currentPage + 1) / LESSON.length) * 100}%`;
   document.getElementById('prev-btn').disabled = state.currentPage === 0;
   document.getElementById('next-btn').disabled = state.currentPage === LESSON.length - 1;
 
+  // Etkinlik tip ikonları
+  const typeIcons = {
+    fill: 'fa-pen-to-square',
+    multiple: 'fa-list-check',
+    truefalse: 'fa-circle-question',
+    match: 'fa-arrows-left-right',
+    image: 'fa-image',
+    writing: 'fa-pen'
+  };
+  const typeLabels = {
+    fill: 'Boşluk Doldurma',
+    multiple: 'Çoktan Seçmeli',
+    truefalse: 'Doğru / Yanlış',
+    match: 'Eşleştirme',
+    image: 'Resme Tıkla',
+    writing: 'Kompozisyon'
+  };
+
   let html = `
-    <div class="page-tag">Sayfa ${state.currentPage + 1}</div>
-    <h2 class="activity-title">${page.title}</h2>
-    <p class="activity-instruction">${page.instruction}</p>
+    <div class="fade-in-up">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg">
+          <i class="fa-solid ${typeIcons[page.type]} mr-1"></i> ${typeLabels[page.type]}
+        </span>
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+          Sayfa ${state.currentPage + 1}
+        </span>
+      </div>
+      <h2 class="text-3xl md:text-4xl font-black text-indigo-900 mb-2 tracking-tight">${page.title}</h2>
+      <p class="text-gray-600 mb-8 text-base">${page.instruction}</p>
   `;
 
   if (page.type === 'fill') html += renderFill(page);
@@ -722,10 +745,10 @@ function renderActivity() {
   if (page.type === 'image') html += renderImage(page);
   if (page.type === 'writing') html += renderWriting(page);
 
+  html += '</div>';
   area.innerHTML = html;
   attachActivityListeners(page);
 
-  // Önceki cevap varsa göster
   if (state.answers[state.currentPage]) {
     applyAnswerToUI(state.currentPage, state.answers[state.currentPage]);
   }
@@ -734,11 +757,11 @@ function renderActivity() {
 // === BOŞLUK DOLDURMA ===
 function renderFill(page) {
   const parts = page.template.split('___');
-  let html = '<div class="fill-text">';
+  let html = '<div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 text-xl md:text-2xl leading-loose text-indigo-900 font-medium">';
   parts.forEach((part, i) => {
     html += part;
     if (i < parts.length - 1) {
-      html += `<input class="fill-input" data-blank="${i}" type="text">`;
+      html += `<input class="fill-input" data-blank="${i}" type="text" placeholder="...">`;
     }
   });
   html += '</div>';
@@ -747,13 +770,19 @@ function renderFill(page) {
 
 // === ÇOKTAN SEÇMELİ ===
 function renderMultiple(page) {
-  let html = `<div class="question">${page.question}</div><div class="choices">`;
+  let html = `
+    <div class="bg-gray-50 border border-gray-200 rounded-2xl p-6 mb-6">
+      <p class="text-2xl font-black text-indigo-900 text-center">${page.question}</p>
+    </div>
+    <div class="grid gap-3">
+  `;
   page.choices.forEach((c, i) => {
     html += `
-      <div class="choice" data-idx="${i}">
-        <span class="letter">${String.fromCharCode(65 + i)}</span>
-        <span>${c}</span>
-      </div>`;
+      <button class="choice-btn bg-white border-2 border-gray-200 rounded-xl p-4 flex items-center gap-4 text-left" data-idx="${i}">
+        <span class="w-9 h-9 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-black flex-shrink-0">${String.fromCharCode(65 + i)}</span>
+        <span class="font-bold text-gray-800 text-base">${c}</span>
+      </button>
+    `;
   });
   html += '</div>';
   return html;
@@ -762,37 +791,70 @@ function renderMultiple(page) {
 // === TRUE/FALSE ===
 function renderTrueFalse(page) {
   return `
-    <div class="tf-statement">"${page.statement}"</div>
-    <div class="tf-buttons">
-      <button class="tf-btn" data-val="true">✓ Doğru</button>
-      <button class="tf-btn" data-val="false">✗ Yanlış</button>
+    <div class="bg-gray-50 border border-gray-200 rounded-2xl p-6 mb-6">
+      <p class="text-xl md:text-2xl font-bold text-indigo-900 italic text-center leading-relaxed">"${page.statement}"</p>
     </div>
-    <div class="tf-feedback" id="tf-feedback"></div>
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <button class="tf-btn bg-white border-2 border-gray-200 rounded-2xl p-8 font-black text-xl text-gray-700 hover:border-emerald-400" data-val="true">
+        <i class="fa-solid fa-check text-2xl text-emerald-500 mb-2 block"></i>
+        Doğru
+      </button>
+      <button class="tf-btn bg-white border-2 border-gray-200 rounded-2xl p-8 font-black text-xl text-gray-700 hover:border-red-400" data-val="false">
+        <i class="fa-solid fa-xmark text-2xl text-red-500 mb-2 block"></i>
+        Yanlış
+      </button>
+    </div>
+    <div id="tf-feedback" class="hidden p-4 rounded-xl text-sm font-bold"></div>
   `;
 }
 
 // === EŞLEŞTİRME ===
 function renderMatch(page) {
-  // Karıştırılmış İngilizce kelimeler (sol) - Sabit Türkçe karşılıklar (sağ)
   const shuffled = [...page.pairs].sort(() => Math.random() - 0.5);
-  let html = '<div class="match-grid"><div class="match-col"><div class="col-title">English</div>';
+  let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">';
+
+  // Sol — İngilizce kelimeler (sürüklenebilir)
+  html += `
+    <div>
+      <p class="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">
+        <i class="fa-solid fa-language mr-1"></i> English
+      </p>
+      <div class="space-y-2">
+  `;
   shuffled.forEach(p => {
-    html += `<div class="draggable" draggable="true" data-en="${p.en}">${p.en}</div>`;
-  });
-  html += '</div><div class="match-col"><div class="col-title">Türkçe</div>';
-  page.pairs.forEach(p => {
     html += `
-      <div class="drop-zone" data-tr="${p.tr}" data-correct-en="${p.en}">
-        <span class="target-word">${p.tr}</span>
-      </div>`;
+      <div class="draggable bg-white border-2 border-indigo-200 rounded-xl p-3 font-bold text-indigo-900 flex items-center gap-3" draggable="true" data-en="${p.en}">
+        <i class="fa-solid fa-grip-vertical text-indigo-300"></i> ${p.en}
+      </div>
+    `;
   });
   html += '</div></div>';
+
+  // Sağ — Türkçe (drop zone)
+  html += `
+    <div>
+      <p class="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">
+        <i class="fa-solid fa-flag mr-1"></i> Türkçe
+      </p>
+      <div class="space-y-2">
+  `;
+  page.pairs.forEach(p => {
+    html += `
+      <div class="drop-zone bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-3 min-h-[52px] flex items-center gap-3" data-tr="${p.tr}" data-correct-en="${p.en}">
+        <span class="target-word text-gray-500 italic flex-1">${p.tr}</span>
+      </div>
+    `;
+  });
+  html += '</div></div></div>';
   return html;
 }
 
 // === RESME TIKLAMA ===
 function renderImage(page) {
-  let html = `<div class="image-area"><div class="scene">${page.emoji}</div>`;
+  let html = `
+    <div class="relative bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl border border-indigo-200 overflow-hidden" style="height: 360px;">
+      <div class="absolute inset-0 flex items-center justify-center text-6xl md:text-8xl tracking-widest">${page.emoji}</div>
+  `;
   page.spots.forEach((s, i) => {
     html += `<div class="clickable-spot" data-idx="${i}" data-correct="${s.correct}" style="left:${s.x};top:${s.y};"></div>`;
   });
@@ -803,14 +865,21 @@ function renderImage(page) {
 // === YAZMA ===
 function renderWriting(page) {
   return `
-    <div class="writing-prompt">${page.prompt}</div>
-    <textarea class="writing-area" id="writing-input" placeholder="Buraya yazın..."></textarea>
-    <div class="word-count" id="word-count">0 kelime</div>
+    <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r-lg mb-4">
+      <p class="text-base font-bold text-indigo-900 italic">${page.prompt}</p>
+    </div>
+    <textarea id="writing-input"
+              class="w-full min-h-[240px] bg-white border border-gray-300 rounded-xl p-5 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition resize-y"
+              placeholder="Cevabınızı buraya yazın..."></textarea>
+    <div class="flex justify-between items-center mt-2">
+      <span class="text-xs text-gray-500"><i class="fa-solid fa-circle-info mr-1"></i> Karşı taraf yazdıklarınızı anlık görüyor</span>
+      <span id="word-count" class="text-xs font-bold text-indigo-600">0 kelime</span>
+    </div>
   `;
 }
 
 // ====================================================================
-// ETKİNLİK OLAY DİNLEYİCİLERİ (her iki taraf da etkileşebilir)
+// ETKİNLİK OLAY DİNLEYİCİLERİ
 // ====================================================================
 function attachActivityListeners(page) {
   if (page.type === 'fill') {
@@ -826,7 +895,7 @@ function attachActivityListeners(page) {
   }
 
   if (page.type === 'multiple') {
-    document.querySelectorAll('.choice').forEach(c => {
+    document.querySelectorAll('.choice-btn').forEach(c => {
       c.onclick = () => {
         const idx = parseInt(c.dataset.idx);
         syncAnswer(state.currentPage, { type: 'multiple', selected: idx, correct: page.correct });
@@ -858,8 +927,6 @@ function attachActivityListeners(page) {
         if (!dragged) return;
         const droppedEn = dragged.dataset.en;
         const isCorrect = droppedEn === z.dataset.correctEn;
-
-        // Mevcut eşleşmeleri al ve güncelle
         const matches = state.answers[state.currentPage]?.matches || {};
         matches[z.dataset.tr] = { en: droppedEn, correct: isCorrect };
         syncAnswer(state.currentPage, { type: 'match', matches });
@@ -883,7 +950,6 @@ function attachActivityListeners(page) {
     ta.addEventListener('input', () => {
       const text = ta.value;
       document.getElementById('word-count').textContent = `${text.trim().split(/\s+/).filter(Boolean).length} kelime`;
-      // Debounce: hızlı yazımda Firebase'i bombalama
       clearTimeout(typingTimer);
       typingTimer = setTimeout(() => syncAnswer(state.currentPage, { type: 'writing', text }), 400);
     });
@@ -891,7 +957,7 @@ function attachActivityListeners(page) {
 }
 
 // ====================================================================
-// CEVAPLARI UI'A UYGULA (Firebase'den gelen güncellemeler için)
+// CEVAPLARI UI'A UYGULA
 // ====================================================================
 function applyAnswerToUI(pageIndex, ans) {
   if (pageIndex !== state.currentPage) return;
@@ -910,7 +976,7 @@ function applyAnswerToUI(pageIndex, ans) {
   }
 
   if (ans.type === 'multiple') {
-    document.querySelectorAll('.choice').forEach((c, i) => {
+    document.querySelectorAll('.choice-btn').forEach((c, i) => {
       c.classList.remove('selected', 'correct', 'wrong');
       if (i === ans.selected) {
         c.classList.add(i === ans.correct ? 'correct' : 'wrong');
@@ -922,23 +988,35 @@ function applyAnswerToUI(pageIndex, ans) {
 
   if (ans.type === 'truefalse') {
     document.querySelectorAll('.tf-btn').forEach(b => {
-      b.classList.remove('selected');
-      if ((b.dataset.val === 'true') === ans.selected) b.classList.add('selected');
+      b.classList.remove('selected-true', 'selected-false');
+      const val = b.dataset.val === 'true';
+      if (val === ans.selected) {
+        b.classList.add(ans.correct === val ? 'selected-true' : 'selected-false');
+      }
     });
     const fb = document.getElementById('tf-feedback');
     const isCorrect = ans.selected === ans.correct;
-    fb.textContent = isCorrect ? '✓ Doğru!' : `✗ Yanlış. ${ans.explanation || ''}`;
-    fb.className = 'tf-feedback show ' + (isCorrect ? 'correct' : 'wrong');
+    fb.className = 'p-4 rounded-xl text-sm font-bold ' +
+      (isCorrect ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                 : 'bg-red-50 text-red-700 border border-red-200');
+    fb.innerHTML = isCorrect
+      ? '<i class="fa-solid fa-circle-check mr-2"></i> Doğru!'
+      : `<i class="fa-solid fa-circle-xmark mr-2"></i> Yanlış. ${ans.explanation || ''}`;
   }
 
   if (ans.type === 'match' && ans.matches) {
     Object.entries(ans.matches).forEach(([tr, info]) => {
       const zone = document.querySelector(`.drop-zone[data-tr="${tr}"]`);
       if (!zone) return;
-      zone.innerHTML = `<span class="dropped">${info.en}</span><span class="target-word">→ ${tr}</span>`;
-      zone.classList.add('filled');
-      if (!info.correct) {
-        zone.classList.add('shake');
+      zone.innerHTML = `
+        <span class="bg-indigo-600 text-white px-3 py-1 rounded-lg font-bold text-sm">${info.en}</span>
+        <i class="fa-solid fa-arrow-right text-gray-400"></i>
+        <span class="text-gray-700 font-medium">${tr}</span>
+      `;
+      zone.classList.remove('filled', 'wrong');
+      if (info.correct) zone.classList.add('filled');
+      else {
+        zone.classList.add('wrong', 'shake');
         setTimeout(() => zone.classList.remove('shake'), 400);
       }
     });
@@ -946,7 +1024,7 @@ function applyAnswerToUI(pageIndex, ans) {
 
   if (ans.type === 'image') {
     const spot = document.querySelector(`.clickable-spot[data-idx="${ans.clicked}"]`);
-    if (spot) spot.classList.add('clicked', ans.correct ? 'correct' : 'wrong');
+    if (spot) spot.classList.add(ans.correct ? 'clicked-correct' : 'clicked-wrong');
   }
 
   if (ans.type === 'writing') {
@@ -959,7 +1037,7 @@ function applyAnswerToUI(pageIndex, ans) {
 }
 
 // ====================================================================
-// SAYFA NAVİGASYONU (sadece öğretmen)
+// SAYFA NAVİGASYONU
 // ====================================================================
 document.getElementById('next-btn').onclick = () => {
   if (state.currentPage < LESSON.length - 1) changePage(state.currentPage + 1);
@@ -968,6 +1046,14 @@ document.getElementById('prev-btn').onclick = () => {
   if (state.currentPage > 0) changePage(state.currentPage - 1);
 };
 
+// ====================================================================
+// HATA TOAST
+// ====================================================================
+function showError(msg) {
+  document.getElementById('error-text').textContent = msg;
+  document.getElementById('error-toast').classList.remove('hidden');
+  setTimeout(() => document.getElementById('error-toast').classList.add('hidden'), 5000);
+}
 </script>
 </body>
 </html>
