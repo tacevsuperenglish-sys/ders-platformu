@@ -358,15 +358,15 @@
 
     <!-- Öğrenci kamerası -->
     <div class="cam-wrap flex-1 min-h-[180px]" id="cam-student">
-      <span class="cam-label">
-        <i class="fa-solid fa-user-graduate mr-1"></i> Öğrenci
+      <span class="cam-label" id="label-student">
+        <i class="fa-solid fa-user-graduate mr-1"></i> <span class="cam-name">Öğrenci</span>
       </span>
     </div>
 
     <!-- Öğretmen kamerası -->
     <div class="cam-wrap flex-1 min-h-[180px]" id="cam-teacher">
-      <span class="cam-label">
-        <i class="fa-solid fa-chalkboard-user mr-1"></i> Öğretmen
+      <span class="cam-label" id="label-teacher">
+        <i class="fa-solid fa-chalkboard-user mr-1"></i> <span class="cam-name">Öğretmen</span>
       </span>
     </div>
 
@@ -653,6 +653,33 @@ function attachRemoteVideo(track, participant) {
   container.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
   container.appendChild(videoEl);
+
+  // Etiketi karşı tarafın ismine göre güncelle
+  const remoteName = participant.name || extractNameFromIdentity(participant.identity);
+  updateCamLabel(targetId, isTeacher ? 'teacher' : 'student', remoteName);
+}
+
+// Identity'den isim çıkar: "teacher-Ahmet-12345" → "Ahmet"
+function extractNameFromIdentity(identity) {
+  const parts = identity.split('-');
+  // İlk (rol) ve son (timestamp) hariç ortadaki kısımları birleştir
+  if (parts.length >= 3) {
+    return parts.slice(1, -1).join('-');
+  }
+  return identity;
+}
+
+// Etiket güncelleme — rol + isme göre format
+function updateCamLabel(targetId, role, name) {
+  const label = document.getElementById(targetId === 'cam-teacher' ? 'label-teacher' : 'label-student');
+  if (!label) return;
+  const nameSpan = label.querySelector('.cam-name');
+  if (!nameSpan) return;
+  if (role === 'teacher') {
+    nameSpan.textContent = `Teacher ${name}`;
+  } else {
+    nameSpan.textContent = name;
+  }
 }
 
 function attachLocalVideo(track) {
@@ -662,6 +689,9 @@ function attachLocalVideo(track) {
   const videoEl = track.attach();
   videoEl.muted = true;
   container.appendChild(videoEl);
+
+  // Kendi etiketini ismimle güncelle
+  updateCamLabel(targetId, state.role, state.name);
 }
 
 // Mikrofon / Kamera toggle
