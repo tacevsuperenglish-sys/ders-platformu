@@ -100,7 +100,16 @@
     gap: 16px;
     padding: 16px;
   }
-  .layout-a .cameras { display: flex; flex-direction: column; gap: 12px; }
+  .layout-a .cameras {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  .layout-a .cam-wrap {
+    flex: 1 1 0;
+    min-height: 180px;
+  }
 
   /* Layout B — sağ kolonda 2x2 grid */
   .layout-b .app-grid {
@@ -716,7 +725,7 @@ document.getElementById('enter-btn').onclick = async () => {
 // FIREBASE SENKRON
 // ====================================================================
 async function setupFirebase() {
-  const { ref, onValue, set, get } = window.fb;
+  const { ref, onValue, set, get, update } = window.fb;
   dbRoomRef = ref(window.fb.db, `rooms/${state.room}`);
 
   if (state.role === 'teacher') {
@@ -726,10 +735,59 @@ async function setupFirebase() {
     }
   }
 
+  // === PRESENCE: Ben odaya girdiğimi Firebase'e bildir ===
+  myPresenceId = `${state.role}_${state.name}_${Date.now()}`;
+  const presenceRef = ref(window.fb.db, `rooms/${state.room}/presence/${myPresenceId}`);
+  await set(presenceRef, {
+    name: state.name,
+    role: state.role,
+    joinedAt: Date.now()
+  });
+
+  // Sayfayı kapatınca Firebase'den sil
+  window.addEventListener('beforeunload', () => {
+    try { set(presenceRef, null); } catch(e) {}
+  });
+
+  // Periyodik "ben hala buradayım" sinyali (heartbeat)
+  setInterval(() => {
+    update(presenceRef, { lastSeen: Date.now() });
+  }, 5000);
+
+  // === PRESENCE DİNLE: Odadaki herkesin kutusunu oluştur ===
+  const presenceListRef = ref(window.fb.db, `rooms/${state.room}/presence`);
+  onValue(presenceListRef, (snap) => {
+    const presence = snap.val() || {};
+    const activeIds = new Set();
+
+    // Aktif olanları kontrol et (son 15 saniyede görülmüş)
+    const now = Date.now();
+    Object.entries(presence).forEach(([id, info]) => {
+      const lastSeen = info.lastSeen || info.joinedAt;
+      if (now - lastSeen < 15000) {
+        activeIds.add(id);
+        // Bu kişinin kutusu yoksa oluştur
+        if (!participantBoxes.has(id)) {
+          console.log('👤 Yeni katılımcı (Firebase):', id, info);
+          createCameraBox(id, info.role, info.name);
+        }
+      }
+    });
+
+    // Artık aktif olmayanları kaldır
+    participantBoxes.forEach((entry, id) => {
+      if (!activeIds.has(id)) {
+        console.log('👋 Ayrılan katılımcı:', id);
+        removeCameraBox(id);
+      }
+    });
+  });
+
+  // === ANA OYUN STATE DİNLE (sayfa, cevaplar, layout) ===
   onValue(dbRoomRef, (snap) => {
     const data = snap.val();
     if (!data) return;
-    if (data.currentPage !== state.currentPage) {
+    if (data.currentPage !== undefined && data.currentPage !== state.currentPage) {
       state.currentPage = data.currentPage;
       renderActivity();
     }
@@ -737,12 +795,14 @@ async function setupFirebase() {
       state.answers[state.currentPage] = data.answers[state.currentPage];
       applyAnswerToUI(state.currentPage, data.answers[state.currentPage]);
     }
-    // Öğretmen layout değiştirdiyse herkese uygula
     if (data.layout && LAYOUT_INFO[data.layout]) {
-      applyLayout(data.layout, /* showToast */ state.role !== 'teacher');
+      applyLayout(data.layout, state.role !== 'teacher');
     }
   });
 }
+
+// Presence ID'mi global tut
+let myPresenceId = null;
 
 async function syncAnswer(pageIndex, answerData) {
   const { update } = window.fb;
@@ -761,10 +821,8 @@ let micEnabled = true;
 let camEnabled = true;
 
 async function setupVideo() {
-  // ===== ADIM 0: KENDİ KUTUNU OLUŞTUR (her şeyden ÖNCE, hata olsa bile dursun) =====
-  const myIdentity = `${state.role}-${state.name}-LOCAL`;
-  createCameraBox(myIdentity, state.role, state.name);
-  console.log('✓ Kendi kutum oluşturuldu (placeholder)');
+  // ===== ADIM 0: Kendi kutum Firebase presence sistemi ile otomatik oluşturulacak =====
+  console.log('✓ Setup başladı, Firebase presence aktif');
 
   // ===== ADIM 1: Token al =====
   let data;
@@ -998,27 +1056,44 @@ function updateCameraLayout() {
   document.getElementById('cameras-container').style.setProperty('--cam-count', count);
 }
 
-// Karşı tarafın videosunu doğru kutuya tak
+// Karşı tarafın videosunu doğru kutuya tak — isim eşleştirmesi ile
 function attachRemoteVideo(track, participant) {
   const isTeacher = participant.identity.startsWith('teacher-');
   const role = isTeacher ? 'teacher' : 'student';
   const name = participant.name || extractNameFromIdentity(participant.identity);
-  const box = createCameraBox(participant.identity, role, name);
-  box.querySelectorAll('video').forEach(v => v.remove());
+
+  // Bu isme ait Firebase kutusunu bul (öncelikli)
+  let targetBox = null;
+  participantBoxes.forEach((entry, id) => {
+    if (entry.name === name && entry.role === role) targetBox = entry.box;
+  });
+
+  // Bulamazsan oluştur
+  if (!targetBox) {
+    targetBox = createCameraBox(participant.identity, role, name);
+  }
+
+  targetBox.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
-  box.appendChild(videoEl);
-  box.classList.remove('no-video'); // video geldi, placeholder gizlendi
+  targetBox.appendChild(videoEl);
+  targetBox.classList.remove('no-video');
 }
 
-// Kendi video'nu kendi kutuna koy
+// Kendi video'nu kendi Firebase kutuna koy
 function attachLocalVideo(track) {
-  const myIdentity = `${state.role}-${state.name}-LOCAL`;
-  const box = createCameraBox(myIdentity, state.role, state.name);
-  box.querySelectorAll('video').forEach(v => v.remove());
+  // Firebase kutuyu zaten oluşturmuş olmalı (myPresenceId ile)
+  let targetBox = null;
+  if (myPresenceId && participantBoxes.has(myPresenceId)) {
+    targetBox = participantBoxes.get(myPresenceId).box;
+  } else {
+    // Yedek olarak oluştur
+    targetBox = createCameraBox(myPresenceId || 'LOCAL', state.role, state.name);
+  }
+  targetBox.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
   videoEl.muted = true;
-  box.appendChild(videoEl);
-  box.classList.remove('no-video');
+  targetBox.appendChild(videoEl);
+  targetBox.classList.remove('no-video');
 }
 
 // Mikrofon / Kamera toggle
@@ -1038,9 +1113,8 @@ document.getElementById('toggle-cam').onclick = async () => {
   camEnabled = !camEnabled;
   await lkRoom.localParticipant.setCameraEnabled(camEnabled);
 
-  // Kendi kutuna placeholder uygula/kaldır
-  const myIdentity = `${state.role}-${state.name}-LOCAL`;
-  const entry = participantBoxes.get(myIdentity);
+  // Kendi Firebase kutuna placeholder uygula/kaldır
+  const entry = participantBoxes.get(myPresenceId);
   if (entry) {
     if (camEnabled) {
       entry.box.classList.remove('no-video');
