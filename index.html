@@ -761,6 +761,13 @@ let micEnabled = true;
 let camEnabled = true;
 
 async function setupVideo() {
+  // ===== ADIM 0: KENDİ KUTUNU OLUŞTUR (her şeyden ÖNCE, hata olsa bile dursun) =====
+  const myIdentity = `${state.role}-${state.name}-LOCAL`;
+  createCameraBox(myIdentity, state.role, state.name);
+  console.log('✓ Kendi kutum oluşturuldu (placeholder)');
+
+  // ===== ADIM 1: Token al =====
+  let data;
   try {
     const tokenRes = await fetch('/api/livekit-token', {
       method: 'POST',
@@ -771,117 +778,120 @@ async function setupVideo() {
         name: state.name
       })
     });
-    const data = await tokenRes.json();
+    data = await tokenRes.json();
     if (!data.token) throw new Error(data.error || 'Token alınamadı');
+  } catch (e) {
+    console.error('Token hatası:', e);
+    showError('Derse bağlanılamadı (token): ' + e.message);
+    return;
+  }
 
-    lkRoom = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+  // ===== ADIM 2: Room oluştur ve event handler'ları bağla =====
+  lkRoom = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
 
-    lkRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-      if (track.kind === 'video') attachRemoteVideo(track, participant);
-      else if (track.kind === 'audio') {
-        const audioEl = track.attach();
-        audioEl.style.display = 'none';
-        document.body.appendChild(audioEl);
+  lkRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    if (track.kind === 'video') attachRemoteVideo(track, participant);
+    else if (track.kind === 'audio') {
+      const audioEl = track.attach();
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
+    }
+  });
+
+  lkRoom.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+    const isTeacher = participant.identity.startsWith('teacher-');
+    const role = isTeacher ? 'teacher' : 'student';
+    const name = participant.name || extractNameFromIdentity(participant.identity);
+    createCameraBox(participant.identity, role, name);
+  });
+
+  lkRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
+    removeCameraBox(participant.identity);
+  });
+
+  lkRoom.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+    if (track.kind === 'video') {
+      const entry = participantBoxes.get(participant.identity);
+      if (entry) {
+        entry.box.querySelectorAll('video').forEach(v => v.remove());
+        entry.box.classList.add('no-video');
       }
-    });
+    }
+  });
 
-    // Katılımcı bağlandığında — kamera açık olmasa bile kutusunu oluştur
-    lkRoom.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
-      const isTeacher = participant.identity.startsWith('teacher-');
-      const role = isTeacher ? 'teacher' : 'student';
-      const name = participant.name || extractNameFromIdentity(participant.identity);
-      createCameraBox(participant.identity, role, name);
-    });
+  lkRoom.on(LivekitClient.RoomEvent.TrackMuted, (publication, participant) => {
+    if (publication.kind === 'video') {
+      const entry = participantBoxes.get(participant.identity);
+      if (entry) entry.box.classList.add('no-video');
+    }
+  });
+  lkRoom.on(LivekitClient.RoomEvent.TrackUnmuted, (publication, participant) => {
+    if (publication.kind === 'video') {
+      const entry = participantBoxes.get(participant.identity);
+      if (entry) entry.box.classList.remove('no-video');
+    }
+  });
 
-    // Katılımcı ayrıldığında kutusunu kaldır
-    lkRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
-      removeCameraBox(participant.identity);
+  lkRoom.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
+    document.querySelectorAll('.cam-wrap').forEach(b => b.classList.remove('speaking'));
+    speakers.forEach(sp => {
+      const entry = participantBoxes.get(sp.identity);
+      if (entry) entry.box.classList.add('speaking');
     });
+  });
 
-    // Bir track yayını kapanırsa (kamera kapatma) → placeholder göster
-    lkRoom.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
-      if (track.kind === 'video') {
-        const entry = participantBoxes.get(participant.identity);
-        if (entry) {
-          entry.box.querySelectorAll('video').forEach(v => v.remove());
-          entry.box.classList.add('no-video');
-        }
-      }
-    });
-
-    // Mute/Unmute olayları — yayın kapatılırsa placeholder göster
-    lkRoom.on(LivekitClient.RoomEvent.TrackMuted, (publication, participant) => {
-      if (publication.kind === 'video') {
-        const entry = participantBoxes.get(participant.identity);
-        if (entry) entry.box.classList.add('no-video');
-      }
-    });
-    lkRoom.on(LivekitClient.RoomEvent.TrackUnmuted, (publication, participant) => {
-      if (publication.kind === 'video') {
-        const entry = participantBoxes.get(participant.identity);
-        if (entry) entry.box.classList.remove('no-video');
-      }
-    });
-
-    // Aktif konuşmacılar (Layout D için kullanılır; her layoutta parıltı verir)
-    lkRoom.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
-      // Önce hepsinden temizle
-      document.querySelectorAll('.cam-wrap').forEach(b => b.classList.remove('speaking'));
-      // Konuşanlara parıltı ekle
-      speakers.forEach(sp => {
-        const entry = participantBoxes.get(sp.identity);
-        if (entry) entry.box.classList.add('speaking');
-      });
-    });
-
+  // ===== ADIM 3: Odaya bağlan =====
+  try {
     await lkRoom.connect(data.wsUrl, data.token);
+    console.log('✓ LiveKit odasına bağlandı');
+  } catch (e) {
+    console.error('Bağlantı hatası:', e);
+    showError('Odaya bağlanılamadı: ' + e.message);
+    return;
+  }
 
-    // 1. KENDİ KUTUNU HEMEN OLUŞTUR (kameran açık olmasa bile!)
-    const myIdentity = `${state.role}-${state.name}-LOCAL`;
-    createCameraBox(myIdentity, state.role, state.name);
+  // ===== ADIM 4: Odadaki mevcut katılımcıları göster =====
+  lkRoom.remoteParticipants.forEach((participant) => {
+    const isTeacher = participant.identity.startsWith('teacher-');
+    const role = isTeacher ? 'teacher' : 'student';
+    const name = participant.name || extractNameFromIdentity(participant.identity);
+    createCameraBox(participant.identity, role, name);
+  });
 
-    // 2. Bağlandığım anda zaten odada olan katılımcılar için kutu oluştur
-    lkRoom.remoteParticipants.forEach((participant) => {
-      const isTeacher = participant.identity.startsWith('teacher-');
-      const role = isTeacher ? 'teacher' : 'student';
-      const name = participant.name || extractNameFromIdentity(participant.identity);
-      createCameraBox(participant.identity, role, name);
-    });
-
-    // 3. Mikrofonu açmaya çalış (hata olursa devam et)
-    try {
-      await lkRoom.localParticipant.setMicrophoneEnabled(true);
-      console.log('✓ Mikrofon açıldı');
-    } catch (micErr) {
-      console.warn('⚠ Mikrofon izni alınamadı, sessiz katıldın:', micErr.message);
-      micEnabled = false;
-      const micBtn = document.getElementById('toggle-mic');
+  // ===== ADIM 5: Mikrofon dene (BAĞIMSIZ try/catch) =====
+  try {
+    await lkRoom.localParticipant.setMicrophoneEnabled(true);
+    console.log('✓ Mikrofon açıldı');
+  } catch (micErr) {
+    console.warn('⚠ Mikrofon izni yok:', micErr.message);
+    micEnabled = false;
+    const micBtn = document.getElementById('toggle-mic');
+    if (micBtn) {
       micBtn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
       micBtn.classList.add('bg-red-50', 'text-red-600');
       micBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
     }
+  }
 
-    // 4. Kamerayı açmaya çalış (hata olursa placeholder ile devam et)
-    try {
-      await lkRoom.localParticipant.setCameraEnabled(true);
-      const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
-      if (pubs.length > 0 && pubs[0].track) attachLocalVideo(pubs[0].track);
-      console.log('✓ Kamera açıldı');
-    } catch (camErr) {
-      console.warn('⚠ Kamera izni alınamadı, görüntüsüz katıldın:', camErr.message);
-      camEnabled = false;
-      const camBtn = document.getElementById('toggle-cam');
+  // ===== ADIM 6: Kamera dene (BAĞIMSIZ try/catch) =====
+  try {
+    await lkRoom.localParticipant.setCameraEnabled(true);
+    const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
+    if (pubs.length > 0 && pubs[0].track) attachLocalVideo(pubs[0].track);
+    console.log('✓ Kamera açıldı');
+  } catch (camErr) {
+    console.warn('⚠ Kamera izni yok:', camErr.message);
+    camEnabled = false;
+    const camBtn = document.getElementById('toggle-cam');
+    if (camBtn) {
       camBtn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
       camBtn.classList.add('bg-red-50', 'text-red-600');
       camBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
-      // Kutum zaten 'no-video' ile başladığı için placeholder kalacak
     }
-
-    console.log('LiveKit bağlandı:', `super-english-${state.room}`);
-  } catch (e) {
-    console.error('LiveKit bağlantı hatası:', e);
-    showError('Derse bağlanılamadı: ' + e.message);
+    // Kutu zaten 'no-video' ile başladı, placeholder görünmeye devam edecek
   }
+
+  console.log('🎉 Setup tamamlandı, derse hazır');
 }
 
 // ====================================================================
