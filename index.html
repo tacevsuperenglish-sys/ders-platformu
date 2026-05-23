@@ -80,8 +80,15 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Sayfa düzeni (ana app) */
-  .app-grid {
+  /* ===== LAYOUT VARYASYONLARI =====
+     A = dikey sağ kolon (varsayılan)
+     B = sağ kolonda 2x2 grid
+     C = üstte yatay şerit
+     D = dikey + konuşan büyür (akıllı)
+  ============================== */
+
+  /* Layout A — sağ kolon, dikey (varsayılan) */
+  .layout-a .app-grid {
     display: grid;
     grid-template-columns: 1fr 320px;
     grid-template-rows: auto 1fr auto;
@@ -93,8 +100,71 @@
     gap: 16px;
     padding: 16px;
   }
+  .layout-a .cameras { display: flex; flex-direction: column; gap: 12px; }
+
+  /* Layout B — sağ kolonda 2x2 grid */
+  .layout-b .app-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "header header"
+      "main cameras"
+      "footer cameras";
+    height: 100vh;
+    gap: 16px;
+    padding: 16px;
+  }
+  .layout-b .cameras {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+    gap: 10px;
+    align-content: start;
+  }
+  .layout-b .cam-wrap { min-height: 130px !important; }
+
+  /* Layout C — üstte yatay şerit (önerilen) */
+  .layout-c .app-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 160px 1fr auto;
+    grid-template-areas:
+      "header"
+      "cameras"
+      "main"
+      "footer";
+    height: 100vh;
+    gap: 16px;
+    padding: 16px;
+  }
+  .layout-c .cameras {
+    display: grid;
+    grid-template-columns: repeat(var(--cam-count, 4), 1fr);
+    gap: 12px;
+  }
+  .layout-c .cam-wrap { min-height: 0 !important; height: 100%; }
+
+  /* Layout D — dikey + konuşan büyür */
+  .layout-d .app-grid {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "header header"
+      "main cameras"
+      "footer cameras";
+    height: 100vh;
+    gap: 16px;
+    padding: 16px;
+  }
+  .layout-d .cameras { display: flex; flex-direction: column; gap: 10px; }
+  .layout-d .cam-wrap { flex: 1; transition: flex 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+  .layout-d .cam-wrap.speaking { flex: 2.5; }
+
+  /* Mobil — tüm layoutlar tek kolona düşer */
   @media (max-width: 768px) {
-    .app-grid {
+    .layout-a .app-grid, .layout-b .app-grid, .layout-d .app-grid {
       grid-template-columns: 1fr;
       grid-template-rows: auto auto 1fr auto;
       grid-template-areas:
@@ -103,8 +173,45 @@
         "main"
         "footer";
     }
-    .cam-wrap { height: 140px !important; }
+    .layout-a .cameras, .layout-d .cameras {
+      flex-direction: row;
+      height: 140px;
+    }
+    .layout-b .cameras {
+      grid-template-columns: repeat(4, 1fr);
+      height: 110px;
+    }
+    .cam-wrap { min-height: 0 !important; height: 100%; }
   }
+
+  /* ===== KONUŞAN PARILTISI ===== */
+  @keyframes speakingGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(217, 70, 239, 0.7), 0 8px 24px rgba(67, 56, 202, 0.15); }
+    50%      { box-shadow: 0 0 0 8px rgba(217, 70, 239, 0.0), 0 8px 24px rgba(67, 56, 202, 0.15); }
+  }
+  .cam-wrap.speaking {
+    border-color: #d946ef !important;
+    animation: speakingGlow 1.5s ease-in-out infinite;
+  }
+
+  /* ===== SECRET CODE TOAST ===== */
+  .secret-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: linear-gradient(45deg, #0075e5, #eb0bc4);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 14px;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .secret-toast.show { transform: translateX(-50%) translateY(0); }
 
   /* Kameralar */
   .cam-wrap {
@@ -353,36 +460,26 @@
     <div id="activity-area" class="relative z-10 p-6 md:p-10"></div>
   </main>
 
-  <!-- KAMERALAR (sağ kolon) -->
-  <aside class="flex flex-col gap-3" style="grid-area: cameras;">
-
-    <!-- Öğrenci kamerası -->
-    <div class="cam-wrap flex-1 min-h-[180px]" id="cam-student">
-      <span class="cam-label" id="label-student">
-        <i class="fa-solid fa-user-graduate mr-1"></i> <span class="cam-name">Öğrenci</span>
-      </span>
-    </div>
-
-    <!-- Öğretmen kamerası -->
-    <div class="cam-wrap flex-1 min-h-[180px]" id="cam-teacher">
-      <span class="cam-label" id="label-teacher">
-        <i class="fa-solid fa-chalkboard-user mr-1"></i> <span class="cam-name">Öğretmen</span>
-      </span>
-    </div>
-
-    <!-- Kontrol butonları -->
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-3 flex items-center justify-around">
-      <button id="toggle-mic" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Mikrofon">
-        <i class="fa-solid fa-microphone"></i>
-      </button>
-      <button id="toggle-cam" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Kamera">
-        <i class="fa-solid fa-video"></i>
-      </button>
-      <button id="leave-btn" class="w-11 h-11 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition" title="Dersten Ayrıl">
-        <i class="fa-solid fa-arrow-right-from-bracket"></i>
-      </button>
-    </div>
+  <!-- KAMERALAR (dinamik — 1 öğretmen + 1-3 öğrenci) -->
+  <aside class="cameras" id="cameras-container" style="grid-area: cameras;">
+    <!-- Kutular JS ile dinamik oluşturulacak -->
   </aside>
+
+  <!-- KONTROL ÇUBUĞU (footer içine yer değiştirilebilir, şu an layout dışı) -->
+  <div id="control-bar" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 flex items-center gap-2 z-20" style="display:none;">
+    <button id="toggle-mic" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Mikrofon">
+      <i class="fa-solid fa-microphone"></i>
+    </button>
+    <button id="toggle-cam" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Kamera">
+      <i class="fa-solid fa-video"></i>
+    </button>
+    <button id="leave-btn" class="w-11 h-11 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition" title="Dersten Ayrıl">
+      <i class="fa-solid fa-arrow-right-from-bracket"></i>
+    </button>
+  </div>
+
+  <!-- Secret code toast -->
+  <div id="secret-toast" class="secret-toast"></div>
 
   <!-- FOOTER (sayfa kontrolü) -->
   <footer class="bg-white border border-gray-200 rounded-2xl shadow-sm flex items-center justify-between px-5 py-3" style="grid-area: footer;">
@@ -539,6 +636,7 @@ document.getElementById('enter-btn').onclick = async () => {
 
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('app').style.display = 'grid';
+  document.getElementById('control-bar').style.display = 'flex';
 
   // Rol rozetini ayarla
   const badge = document.getElementById('role-badge');
@@ -633,6 +731,22 @@ async function setupVideo() {
       }
     });
 
+    // Katılımcı ayrıldığında kutusunu kaldır
+    lkRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
+      removeCameraBox(participant.identity);
+    });
+
+    // Aktif konuşmacılar (Layout D için kullanılır; her layoutta parıltı verir)
+    lkRoom.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
+      // Önce hepsinden temizle
+      document.querySelectorAll('.cam-wrap').forEach(b => b.classList.remove('speaking'));
+      // Konuşanlara parıltı ekle
+      speakers.forEach(sp => {
+        const entry = participantBoxes.get(sp.identity);
+        if (entry) entry.box.classList.add('speaking');
+      });
+    });
+
     await lkRoom.connect(data.wsUrl, data.token);
     await lkRoom.localParticipant.enableCameraAndMicrophone();
 
@@ -646,52 +760,77 @@ async function setupVideo() {
   }
 }
 
-function attachRemoteVideo(track, participant) {
-  const isTeacher = participant.identity.startsWith('teacher-');
-  const targetId = isTeacher ? 'cam-teacher' : 'cam-student';
-  const container = document.getElementById(targetId);
-  container.querySelectorAll('video').forEach(v => v.remove());
-  const videoEl = track.attach();
-  container.appendChild(videoEl);
-
-  // Etiketi karşı tarafın ismine göre güncelle
-  const remoteName = participant.name || extractNameFromIdentity(participant.identity);
-  updateCamLabel(targetId, isTeacher ? 'teacher' : 'student', remoteName);
-}
+// ====================================================================
+// DİNAMİK KAMERA SİSTEMİ
+// ====================================================================
+// participantBoxes: identity → { box, role, name } eşlemesi
+const participantBoxes = new Map();
 
 // Identity'den isim çıkar: "teacher-Ahmet-12345" → "Ahmet"
 function extractNameFromIdentity(identity) {
   const parts = identity.split('-');
-  // İlk (rol) ve son (timestamp) hariç ortadaki kısımları birleştir
   if (parts.length >= 3) {
     return parts.slice(1, -1).join('-');
   }
   return identity;
 }
 
-// Etiket güncelleme — rol + isme göre format
-function updateCamLabel(targetId, role, name) {
-  const label = document.getElementById(targetId === 'cam-teacher' ? 'label-teacher' : 'label-student');
-  if (!label) return;
-  const nameSpan = label.querySelector('.cam-name');
-  if (!nameSpan) return;
-  if (role === 'teacher') {
-    nameSpan.textContent = `Teacher ${name}`;
-  } else {
-    nameSpan.textContent = name;
-  }
+// Kutu oluştur (öğrenci veya öğretmen için)
+function createCameraBox(identity, role, name) {
+  if (participantBoxes.has(identity)) return participantBoxes.get(identity).box;
+
+  const box = document.createElement('div');
+  box.className = 'cam-wrap';
+  box.dataset.identity = identity;
+  box.dataset.role = role;
+
+  const label = document.createElement('span');
+  label.className = 'cam-label';
+  const icon = role === 'teacher' ? 'fa-chalkboard-user' : 'fa-user-graduate';
+  const displayName = role === 'teacher' ? `Teacher ${name}` : name;
+  label.innerHTML = `<i class="fa-solid ${icon} mr-1"></i> ${displayName}`;
+  box.appendChild(label);
+
+  document.getElementById('cameras-container').appendChild(box);
+  participantBoxes.set(identity, { box, role, name });
+  updateCameraLayout();
+  return box;
 }
 
+// Kutuyu sil (kişi ayrıldı)
+function removeCameraBox(identity) {
+  const entry = participantBoxes.get(identity);
+  if (!entry) return;
+  entry.box.remove();
+  participantBoxes.delete(identity);
+  updateCameraLayout();
+}
+
+// Layout C için: kamera sayısına göre CSS değişkenini güncelle
+function updateCameraLayout() {
+  const count = participantBoxes.size;
+  document.getElementById('cameras-container').style.setProperty('--cam-count', count);
+}
+
+// Karşı tarafın videosunu doğru kutuya tak
+function attachRemoteVideo(track, participant) {
+  const isTeacher = participant.identity.startsWith('teacher-');
+  const role = isTeacher ? 'teacher' : 'student';
+  const name = participant.name || extractNameFromIdentity(participant.identity);
+  const box = createCameraBox(participant.identity, role, name);
+  box.querySelectorAll('video').forEach(v => v.remove());
+  const videoEl = track.attach();
+  box.appendChild(videoEl);
+}
+
+// Kendi video'nu kendi kutuna koy
 function attachLocalVideo(track) {
-  const targetId = state.role === 'teacher' ? 'cam-teacher' : 'cam-student';
-  const container = document.getElementById(targetId);
-  container.querySelectorAll('video').forEach(v => v.remove());
+  const myIdentity = `${state.role}-${state.name}-LOCAL`;
+  const box = createCameraBox(myIdentity, state.role, state.name);
+  box.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
   videoEl.muted = true;
-  container.appendChild(videoEl);
-
-  // Kendi etiketini ismimle güncelle
-  updateCamLabel(targetId, state.role, state.name);
+  box.appendChild(videoEl);
 }
 
 // Mikrofon / Kamera toggle
@@ -1084,6 +1223,69 @@ function showError(msg) {
   document.getElementById('error-toast').classList.remove('hidden');
   setTimeout(() => document.getElementById('error-toast').classList.add('hidden'), 5000);
 }
+
+
+// ====================================================================
+// SECRET CODE — gizli klavye komutları (GTA tarzı)
+// secenekb, secenekc, secenekd → layout değiştir
+// seceneka → varsayılana dön
+// ====================================================================
+let secretBuffer = '';
+const SECRET_TIMEOUT = 2000; // 2 saniye içinde tuşları arka arkaya bas
+let secretTimer = null;
+
+const LAYOUT_INFO = {
+  'a': { name: 'A — Sağ kolon dikey', class: 'layout-a' },
+  'b': { name: 'B — Sağ kolon 2×2 grid', class: 'layout-b' },
+  'c': { name: 'C — Üstte yatay şerit', class: 'layout-c' },
+  'd': { name: 'D — Konuşan büyür', class: 'layout-d' }
+};
+
+function applyLayout(letter) {
+  const info = LAYOUT_INFO[letter];
+  if (!info) return;
+  // Eski layout class'larını temizle
+  document.body.classList.remove('layout-a', 'layout-b', 'layout-c', 'layout-d');
+  document.body.classList.add(info.class);
+  // Toast göster
+  const toast = document.getElementById('secret-toast');
+  toast.textContent = `✨ Layout ${letter.toUpperCase()} aktif: ${info.name}`;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+  // localStorage'da hatırla
+  try { localStorage.setItem('lessonLayout', letter); } catch(e) {}
+}
+
+document.addEventListener('keydown', (e) => {
+  // Input içindeyken takip etme
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+  secretBuffer += e.key.toLowerCase();
+  if (secretBuffer.length > 20) secretBuffer = secretBuffer.slice(-20);
+
+  clearTimeout(secretTimer);
+  secretTimer = setTimeout(() => { secretBuffer = ''; }, SECRET_TIMEOUT);
+
+  // Kontrol et
+  for (const letter of ['a', 'b', 'c', 'd']) {
+    if (secretBuffer.endsWith(`secenek${letter}`)) {
+      applyLayout(letter);
+      secretBuffer = '';
+      break;
+    }
+  }
+});
+
+// Sayfa açılınca varsayılan layout — A
+(function initLayout() {
+  let saved = 'a';
+  try { saved = localStorage.getItem('lessonLayout') || 'a'; } catch(e) {}
+  document.body.classList.add(LAYOUT_INFO[saved].class);
+})();
+
+// Derse girince kontrol çubuğunu göster
+const oldEnterHandler = document.getElementById('enter-btn').onclick;
+
 </script>
 </body>
 </html>
