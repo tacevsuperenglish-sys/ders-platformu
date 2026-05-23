@@ -215,14 +215,64 @@
 
   /* Kameralar */
   .cam-wrap {
-    background: #000;
+    background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
     border-radius: 16px;
     overflow: hidden;
     position: relative;
     border: 2px solid white;
     box-shadow: 0 8px 24px rgba(67, 56, 202, 0.15), 0 2px 6px rgba(235, 11, 196, 0.08);
   }
-  .cam-wrap video { width: 100%; height: 100%; object-fit: cover; }
+  .cam-wrap video { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; }
+  .cam-wrap.no-video video { display: none; }
+
+  /* Avatar placeholder — kamera yoksa gösterilen */
+  .cam-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 0;
+    color: white;
+  }
+  .cam-wrap:not(.no-video) .cam-placeholder { display: none; }
+
+  .cam-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #0075e5, #eb0bc4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 24px;
+    color: white;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    text-transform: uppercase;
+  }
+  /* Küçük kutular için avatar boyutu küçülsün */
+  .layout-b .cam-avatar, .layout-c .cam-avatar { width: 48px; height: 48px; font-size: 18px; }
+
+  .cam-noVideoIcon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    z-index: 2;
+  }
+  .cam-wrap:not(.no-video) .cam-noVideoIcon { display: none; }
+
   .cam-label {
     position: absolute;
     bottom: 10px;
@@ -236,7 +286,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    z-index: 2;
+    z-index: 3;
   }
 
   /* Etkinlik girdileri (boşluk doldurma) */
@@ -687,6 +737,10 @@ async function setupFirebase() {
       state.answers[state.currentPage] = data.answers[state.currentPage];
       applyAnswerToUI(state.currentPage, data.answers[state.currentPage]);
     }
+    // Öğretmen layout değiştirdiyse herkese uygula
+    if (data.layout && LAYOUT_INFO[data.layout]) {
+      applyLayout(data.layout, /* showToast */ state.role !== 'teacher');
+    }
   });
 }
 
@@ -731,9 +785,42 @@ async function setupVideo() {
       }
     });
 
+    // Katılımcı bağlandığında — kamera açık olmasa bile kutusunu oluştur
+    lkRoom.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+      const isTeacher = participant.identity.startsWith('teacher-');
+      const role = isTeacher ? 'teacher' : 'student';
+      const name = participant.name || extractNameFromIdentity(participant.identity);
+      createCameraBox(participant.identity, role, name);
+    });
+
     // Katılımcı ayrıldığında kutusunu kaldır
     lkRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
       removeCameraBox(participant.identity);
+    });
+
+    // Bir track yayını kapanırsa (kamera kapatma) → placeholder göster
+    lkRoom.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+      if (track.kind === 'video') {
+        const entry = participantBoxes.get(participant.identity);
+        if (entry) {
+          entry.box.querySelectorAll('video').forEach(v => v.remove());
+          entry.box.classList.add('no-video');
+        }
+      }
+    });
+
+    // Mute/Unmute olayları — yayın kapatılırsa placeholder göster
+    lkRoom.on(LivekitClient.RoomEvent.TrackMuted, (publication, participant) => {
+      if (publication.kind === 'video') {
+        const entry = participantBoxes.get(participant.identity);
+        if (entry) entry.box.classList.add('no-video');
+      }
+    });
+    lkRoom.on(LivekitClient.RoomEvent.TrackUnmuted, (publication, participant) => {
+      if (publication.kind === 'video') {
+        const entry = participantBoxes.get(participant.identity);
+        if (entry) entry.box.classList.remove('no-video');
+      }
     });
 
     // Aktif konuşmacılar (Layout D için kullanılır; her layoutta parıltı verir)
@@ -748,6 +835,15 @@ async function setupVideo() {
     });
 
     await lkRoom.connect(data.wsUrl, data.token);
+
+    // Bağlandığım anda zaten odada olan katılımcılar için kutu oluştur
+    lkRoom.remoteParticipants.forEach((participant) => {
+      const isTeacher = participant.identity.startsWith('teacher-');
+      const role = isTeacher ? 'teacher' : 'student';
+      const name = participant.name || extractNameFromIdentity(participant.identity);
+      createCameraBox(participant.identity, role, name);
+    });
+
     await lkRoom.localParticipant.enableCameraAndMicrophone();
 
     const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
@@ -775,15 +871,39 @@ function extractNameFromIdentity(identity) {
   return identity;
 }
 
-// Kutu oluştur (öğrenci veya öğretmen için)
+// İsimden iki harf üret: "Ahmet Yılmaz" → "AY", "Ali" → "A"
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return parts[0][0].toUpperCase();
+}
+
+// Kutu oluştur — her zaman placeholder ile (kamera açılınca video üstüne gelir)
 function createCameraBox(identity, role, name) {
   if (participantBoxes.has(identity)) return participantBoxes.get(identity).box;
 
   const box = document.createElement('div');
-  box.className = 'cam-wrap';
+  box.className = 'cam-wrap no-video'; // varsayılan: kamera yok
   box.dataset.identity = identity;
   box.dataset.role = role;
 
+  // Placeholder (avatar + isim)
+  const placeholder = document.createElement('div');
+  placeholder.className = 'cam-placeholder';
+  placeholder.innerHTML = `
+    <div class="cam-avatar">${getInitials(name)}</div>
+    <div class="text-xs font-bold opacity-90">${role === 'teacher' ? 'Teacher ' + name : name}</div>
+  `;
+  box.appendChild(placeholder);
+
+  // "Kamera kapalı" ikonu
+  const noVideoIcon = document.createElement('div');
+  noVideoIcon.className = 'cam-noVideoIcon';
+  noVideoIcon.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+  box.appendChild(noVideoIcon);
+
+  // Alt isim etiketi
   const label = document.createElement('span');
   label.className = 'cam-label';
   const icon = role === 'teacher' ? 'fa-chalkboard-user' : 'fa-user-graduate';
@@ -821,6 +941,7 @@ function attachRemoteVideo(track, participant) {
   box.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
   box.appendChild(videoEl);
+  box.classList.remove('no-video'); // video geldi, placeholder gizlendi
 }
 
 // Kendi video'nu kendi kutuna koy
@@ -831,6 +952,7 @@ function attachLocalVideo(track) {
   const videoEl = track.attach();
   videoEl.muted = true;
   box.appendChild(videoEl);
+  box.classList.remove('no-video');
 }
 
 // Mikrofon / Kamera toggle
@@ -849,6 +971,19 @@ document.getElementById('toggle-cam').onclick = async () => {
   if (!lkRoom) return;
   camEnabled = !camEnabled;
   await lkRoom.localParticipant.setCameraEnabled(camEnabled);
+
+  // Kendi kutuna placeholder uygula/kaldır
+  const myIdentity = `${state.role}-${state.name}-LOCAL`;
+  const entry = participantBoxes.get(myIdentity);
+  if (entry) {
+    if (camEnabled) {
+      entry.box.classList.remove('no-video');
+    } else {
+      entry.box.querySelectorAll('video').forEach(v => v.remove());
+      entry.box.classList.add('no-video');
+    }
+  }
+
   const btn = document.getElementById('toggle-cam');
   btn.innerHTML = camEnabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
   btn.classList.toggle('bg-red-50', !camEnabled);
@@ -1241,46 +1376,65 @@ const LAYOUT_INFO = {
   'd': { name: 'D — Konuşan büyür', class: 'layout-d' }
 };
 
-function applyLayout(letter) {
+function applyLayout(letter, fromTeacher) {
   const info = LAYOUT_INFO[letter];
   if (!info) return;
+  // Aynı layout zaten aktifse hiçbir şey yapma (sonsuz yayılım önlemi)
+  if (document.body.classList.contains(info.class)) return;
   // Eski layout class'larını temizle
   document.body.classList.remove('layout-a', 'layout-b', 'layout-c', 'layout-d');
   document.body.classList.add(info.class);
   // Toast göster
   const toast = document.getElementById('secret-toast');
-  toast.textContent = `✨ Layout ${letter.toUpperCase()} aktif: ${info.name}`;
+  if (fromTeacher) {
+    toast.innerHTML = `<i class="fa-solid fa-chalkboard-user mr-2"></i> Öğretmen ekranı değiştirdi: ${info.name}`;
+  } else {
+    toast.textContent = `✨ Layout ${letter.toUpperCase()} aktif: ${info.name}`;
+  }
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2500);
-  // localStorage'da hatırla
-  try { localStorage.setItem('lessonLayout', letter); } catch(e) {}
 }
 
 document.addEventListener('keydown', (e) => {
-  // Input içindeyken takip etme
-  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  // SADECE ÖĞRETMENLER bu kodu kullanabilir
+  if (state.role !== 'teacher') return;
 
-  secretBuffer += e.key.toLowerCase();
-  if (secretBuffer.length > 20) secretBuffer = secretBuffer.slice(-20);
+  // Input/textarea içindeyken takip etme
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  // Modifier tuşları → atla
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+  // Sadece tek harf olan tuşları al
+  const key = e.key;
+  if (key.length !== 1 || !/[a-zA-Z]/.test(key)) return;
+
+  secretBuffer += key.toLowerCase();
+  if (secretBuffer.length > 30) secretBuffer = secretBuffer.slice(-30);
 
   clearTimeout(secretTimer);
   secretTimer = setTimeout(() => { secretBuffer = ''; }, SECRET_TIMEOUT);
 
-  // Kontrol et
+  // Kontrol et — eşleşme bulunca Firebase'e yaz, herkese yayılacak
   for (const letter of ['a', 'b', 'c', 'd']) {
     if (secretBuffer.endsWith(`secenek${letter}`)) {
-      applyLayout(letter);
+      console.log('[öğretmen layout değiştirdi]', letter);
+      broadcastLayout(letter);
       secretBuffer = '';
       break;
     }
   }
 });
 
-// Sayfa açılınca varsayılan layout — A
+// Öğretmen Firebase'e yazar → herkes onValue ile alır
+async function broadcastLayout(letter) {
+  if (!dbRoomRef) return;
+  const { update } = window.fb;
+  await update(dbRoomRef, { layout: letter });
+}
+
+// Sayfa açılınca varsayılan layout — A (Firebase bağlanınca öğretmenin seçtiği gelir)
 (function initLayout() {
-  let saved = 'a';
-  try { saved = localStorage.getItem('lessonLayout') || 'a'; } catch(e) {}
-  document.body.classList.add(LAYOUT_INFO[saved].class);
+  document.body.classList.add(LAYOUT_INFO['a'].class);
 })();
 
 // Derse girince kontrol çubuğunu göster
