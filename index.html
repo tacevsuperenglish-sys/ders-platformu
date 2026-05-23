@@ -799,10 +799,27 @@ async function setupVideo() {
   });
 
   lkRoom.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+    console.log('🆕 YENİ KATILIMCI:', participant.identity, participant.name);
     const isTeacher = participant.identity.startsWith('teacher-');
     const role = isTeacher ? 'teacher' : 'student';
     const name = participant.name || extractNameFromIdentity(participant.identity);
     createCameraBox(participant.identity, role, name);
+  });
+  
+  // Data mesajı gelirse — özellikle 'hello' sinyali — kutuyu garantile
+  lkRoom.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
+    if (!participant) return;
+    try {
+      const msg = JSON.parse(new TextDecoder().decode(payload));
+      if (msg.type === 'hello') {
+        console.log('👋 Hello aldım:', participant.identity, msg);
+        // Kutu yoksa oluştur
+        if (!participantBoxes.has(participant.identity)) {
+          const isTeacher = participant.identity.startsWith('teacher-');
+          createCameraBox(participant.identity, msg.role || (isTeacher ? 'teacher' : 'student'), msg.name);
+        }
+      }
+    } catch(e) { console.warn('Data parse hatası:', e); }
   });
 
   lkRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
@@ -842,8 +859,19 @@ async function setupVideo() {
 
   // ===== ADIM 3: Odaya bağlan =====
   try {
-    await lkRoom.connect(data.wsUrl, data.token);
+    await lkRoom.connect(data.wsUrl, data.token, { autoSubscribe: true });
     console.log('✓ LiveKit odasına bağlandı');
+    console.log('Şu an odada olan diğer katılımcılar:', lkRoom.remoteParticipants.size);
+    
+    // KRİTİK: Bağlandığım anda diğerlerine "ben buradayım" sinyali yolla
+    // Bu, kamera/mic izni olmasa bile çalışır
+    try {
+      const helloPayload = new TextEncoder().encode(JSON.stringify({ type: 'hello', name: state.name, role: state.role }));
+      await lkRoom.localParticipant.publishData(helloPayload, { reliable: true });
+      console.log('✓ Hello sinyali gönderildi');
+    } catch (dataErr) {
+      console.warn('Data publish hatası:', dataErr);
+    }
   } catch (e) {
     console.error('Bağlantı hatası:', e);
     showError('Odaya bağlanılamadı: ' + e.message);
