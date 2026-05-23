@@ -749,9 +749,13 @@ async function setupFirebase() {
     try { set(presenceRef, null); } catch(e) {}
   });
 
-  // Periyodik "ben hala buradayım" sinyali (heartbeat)
-  setInterval(() => {
-    update(presenceRef, { lastSeen: Date.now() });
+  // Periyodik "ben hala buradayım" sinyali (heartbeat) - hata-toleranslı
+  setInterval(async () => {
+    try {
+      await update(presenceRef, { lastSeen: Date.now() });
+    } catch (e) {
+      console.warn('Heartbeat hatası (devam ediyoruz):', e.message);
+    }
   }, 5000);
 
   // === PRESENCE DİNLE: Odadaki herkesin kutusunu oluştur ===
@@ -890,6 +894,60 @@ async function setupVideo() {
       if (entry) {
         entry.box.querySelectorAll('video').forEach(v => v.remove());
         entry.box.classList.add('no-video');
+      }
+    }
+  });
+
+  // === KENDİ TRACK'IM yayından kalkarsa (örn. tarayıcı izni geri çekildi) ===
+  lkRoom.on(LivekitClient.RoomEvent.LocalTrackUnpublished, (publication) => {
+    console.log('🔻 Kendi track\'im kalktı:', publication.kind);
+    if (publication.kind === 'video') {
+      camEnabled = false;
+      // Kendi Firebase kutuma placeholder uygula
+      const entry = participantBoxes.get(myPresenceId);
+      if (entry) {
+        entry.box.querySelectorAll('video').forEach(v => v.remove());
+        entry.box.classList.add('no-video');
+      }
+      // Buton görselini güncelle
+      const camBtn = document.getElementById('toggle-cam');
+      if (camBtn) {
+        camBtn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+        camBtn.classList.add('bg-red-50', 'text-red-600');
+        camBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
+      }
+    }
+    if (publication.kind === 'audio') {
+      micEnabled = false;
+      const micBtn = document.getElementById('toggle-mic');
+      if (micBtn) {
+        micBtn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+        micBtn.classList.add('bg-red-50', 'text-red-600');
+        micBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
+      }
+    }
+  });
+
+  // Kendi track'im yeniden yayına girerse
+  lkRoom.on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
+    console.log('🔺 Kendi track\'im yayında:', publication.kind);
+    if (publication.kind === 'video' && publication.track) {
+      camEnabled = true;
+      attachLocalVideo(publication.track);
+      const camBtn = document.getElementById('toggle-cam');
+      if (camBtn) {
+        camBtn.innerHTML = '<i class="fa-solid fa-video"></i>';
+        camBtn.classList.remove('bg-red-50', 'text-red-600');
+        camBtn.classList.add('bg-indigo-50', 'text-indigo-600');
+      }
+    }
+    if (publication.kind === 'audio') {
+      micEnabled = true;
+      const micBtn = document.getElementById('toggle-mic');
+      if (micBtn) {
+        micBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+        micBtn.classList.remove('bg-red-50', 'text-red-600');
+        micBtn.classList.add('bg-indigo-50', 'text-indigo-600');
       }
     }
   });
