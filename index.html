@@ -1169,40 +1169,28 @@ document.getElementById('toggle-mic').onclick = async () => {
 document.getElementById('toggle-cam').onclick = async () => {
   if (!lkRoom) return;
   camEnabled = !camEnabled;
+
+  // LiveKit'e söyle: kamerayı aç/kapat
+  // Geri kalan UI işi LocalTrackPublished/Unpublished eventlerinde otomatik olacak
   await lkRoom.localParticipant.setCameraEnabled(camEnabled);
 
-  // Kendi Firebase kutuna placeholder uygula/kaldır
-  const entry = participantBoxes.get(myPresenceId);
-  if (entry) {
-    if (camEnabled) {
-      // KAMERA AÇILDI — yeni track'i bul ve kutuna bağla
-      // Küçük gecikme: LiveKit'in track'i yayına alması için
-      setTimeout(() => {
-        const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
-        if (pubs.length > 0 && pubs[0].track) {
-          entry.box.querySelectorAll('video').forEach(v => v.remove());
-          const videoEl = pubs[0].track.attach();
-          videoEl.muted = true;
-          videoEl.style.width = '100%';
-          videoEl.style.height = '100%';
-          videoEl.style.objectFit = 'cover';
-          entry.box.appendChild(videoEl);
-          entry.box.classList.remove('no-video');
-        }
-      }, 300);
-    } else {
-      // KAMERA KAPATILDI — video elementini temizle, placeholder göster
-      entry.box.querySelectorAll('video').forEach(v => v.remove());
-      entry.box.classList.add('no-video');
-    }
-  }
-
+  // Buton görselini hemen güncelle (UX için anında geri bildirim)
   const btn = document.getElementById('toggle-cam');
   btn.innerHTML = camEnabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
   btn.classList.toggle('bg-red-50', !camEnabled);
   btn.classList.toggle('text-red-600', !camEnabled);
   btn.classList.toggle('bg-indigo-50', camEnabled);
   btn.classList.toggle('text-indigo-600', camEnabled);
+
+  // Kamera KAPATILIYORSA — placeholder'ı hemen göster (event'i beklemeden)
+  if (!camEnabled) {
+    const entry = participantBoxes.get(myPresenceId);
+    if (entry) {
+      entry.box.querySelectorAll('video').forEach(v => v.remove());
+      entry.box.classList.add('no-video');
+    }
+  }
+  // Kamera AÇILIYORSA — LocalTrackPublished eventi attachLocalVideo'yu çağıracak
 };
 document.getElementById('leave-btn').onclick = async () => {
   if (confirm('Dersten ayrılmak istediğinizden emin misiniz?')) {
