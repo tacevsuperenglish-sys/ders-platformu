@@ -836,7 +836,11 @@ async function setupVideo() {
 
     await lkRoom.connect(data.wsUrl, data.token);
 
-    // Bağlandığım anda zaten odada olan katılımcılar için kutu oluştur
+    // 1. KENDİ KUTUNU HEMEN OLUŞTUR (kameran açık olmasa bile!)
+    const myIdentity = `${state.role}-${state.name}-LOCAL`;
+    createCameraBox(myIdentity, state.role, state.name);
+
+    // 2. Bağlandığım anda zaten odada olan katılımcılar için kutu oluştur
     lkRoom.remoteParticipants.forEach((participant) => {
       const isTeacher = participant.identity.startsWith('teacher-');
       const role = isTeacher ? 'teacher' : 'student';
@@ -844,15 +848,39 @@ async function setupVideo() {
       createCameraBox(participant.identity, role, name);
     });
 
-    await lkRoom.localParticipant.enableCameraAndMicrophone();
+    // 3. Mikrofonu açmaya çalış (hata olursa devam et)
+    try {
+      await lkRoom.localParticipant.setMicrophoneEnabled(true);
+      console.log('✓ Mikrofon açıldı');
+    } catch (micErr) {
+      console.warn('⚠ Mikrofon izni alınamadı, sessiz katıldın:', micErr.message);
+      micEnabled = false;
+      const micBtn = document.getElementById('toggle-mic');
+      micBtn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+      micBtn.classList.add('bg-red-50', 'text-red-600');
+      micBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
+    }
 
-    const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
-    if (pubs.length > 0 && pubs[0].track) attachLocalVideo(pubs[0].track);
+    // 4. Kamerayı açmaya çalış (hata olursa placeholder ile devam et)
+    try {
+      await lkRoom.localParticipant.setCameraEnabled(true);
+      const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
+      if (pubs.length > 0 && pubs[0].track) attachLocalVideo(pubs[0].track);
+      console.log('✓ Kamera açıldı');
+    } catch (camErr) {
+      console.warn('⚠ Kamera izni alınamadı, görüntüsüz katıldın:', camErr.message);
+      camEnabled = false;
+      const camBtn = document.getElementById('toggle-cam');
+      camBtn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+      camBtn.classList.add('bg-red-50', 'text-red-600');
+      camBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
+      // Kutum zaten 'no-video' ile başladığı için placeholder kalacak
+    }
 
     console.log('LiveKit bağlandı:', `super-english-${state.room}`);
   } catch (e) {
-    console.error('LiveKit hatası:', e);
-    showError('Kamera başlatılamadı: ' + e.message);
+    console.error('LiveKit bağlantı hatası:', e);
+    showError('Derse bağlanılamadı: ' + e.message);
   }
 }
 
