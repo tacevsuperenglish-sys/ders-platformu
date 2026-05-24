@@ -749,43 +749,57 @@ async function setupFirebase() {
     try { set(presenceRef, null); } catch(e) {}
   });
 
-  // Periyodik "ben hala buradayım" sinyali (heartbeat) - hata-toleranslı
+  // Periyodik "ben hala buradayım" sinyali - 3 saniyede bir (sık)
   setInterval(async () => {
     try {
       await update(presenceRef, { lastSeen: Date.now() });
     } catch (e) {
-      console.warn('Heartbeat hatası (devam ediyoruz):', e.message);
+      console.warn('Heartbeat hatası:', e.message);
     }
-  }, 5000);
+  }, 3000);
 
-  // === PRESENCE DİNLE: Odadaki herkesin kutusunu oluştur ===
+  // === PRESENCE DURUMU - cached snapshot ===
+  let currentPresenceData = {};
+
+  // Presence değiştikçe cached snapshot'ı güncelle
   const presenceListRef = ref(window.fb.db, `rooms/${state.room}/presence`);
   onValue(presenceListRef, (snap) => {
-    const presence = snap.val() || {};
-    const activeIds = new Set();
+    currentPresenceData = snap.val() || {};
+    refreshPresenceBoxes();
+  });
 
-    // Aktif olanları kontrol et (son 15 saniyede görülmüş)
+  // ÖNEMLİ: Aynı zamanda kendi kendine düzenli aralıkta kontrol et
+  // (Çünkü "ayrılma" zaman bazlı, ve onValue tetiklenmez)
+  setInterval(refreshPresenceBoxes, 4000);
+
+  function refreshPresenceBoxes() {
+    const presence = currentPresenceData;
+    const activeIds = new Set();
     const now = Date.now();
+    const TIMEOUT_MS = 20000; // 20 saniye - heartbeat 3sn, bol bol pay var
+
     Object.entries(presence).forEach(([id, info]) => {
+      if (!info) return;
       const lastSeen = info.lastSeen || info.joinedAt;
-      if (now - lastSeen < 15000) {
+      if (now - lastSeen < TIMEOUT_MS) {
         activeIds.add(id);
-        // Bu kişinin kutusu yoksa oluştur
         if (!participantBoxes.has(id)) {
           console.log('👤 Yeni katılımcı (Firebase):', id, info);
           createCameraBox(id, info.role, info.name);
+          // YENİ: LiveKit'te bu kişinin track'leri varsa onlara bağlan
+          attachExistingLiveKitTracksFor(info.name, info.role);
         }
       }
     });
 
-    // Artık aktif olmayanları kaldır
+    // Aktif olmayanları kaldır
     participantBoxes.forEach((entry, id) => {
       if (!activeIds.has(id)) {
         console.log('👋 Ayrılan katılımcı:', id);
         removeCameraBox(id);
       }
     });
-  });
+  }
 
   // === ANA OYUN STATE DİNLE (sayfa, cevaplar, layout) ===
   onValue(dbRoomRef, (snap) => {
@@ -852,11 +866,21 @@ async function setupVideo() {
   lkRoom = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
 
   lkRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    console.log('🎬 TrackSubscribed:', participant.identity, track.kind);
     if (track.kind === 'video') attachRemoteVideo(track, participant);
     else if (track.kind === 'audio') {
       const audioEl = track.attach();
       audioEl.style.display = 'none';
       document.body.appendChild(audioEl);
+    }
+  });
+
+  // YENİ: Karşı taraf yeni track yayınlarsa (örn kamera açtı) — abone olduğumuzdan emin ol
+  lkRoom.on(LivekitClient.RoomEvent.TrackPublished, (publication, participant) => {
+    console.log('📡 TrackPublished:', participant.identity, publication.kind);
+    // Otomatik abone olmalı ama manuel garantiye al
+    if (!publication.isSubscribed) {
+      publication.setSubscribed(true);
     }
   });
 
@@ -930,10 +954,20 @@ async function setupVideo() {
 
   // Kendi track'im yeniden yayına girerse
   lkRoom.on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
-    console.log('🔺 Kendi track\'im yayında:', publication.kind);
-    if (publication.kind === 'video' && publication.track) {
+    console.log('🔺 Kendi track\'im yayında:', publication.kind, 'track var mı?', !!publication.track);
+    if (publication.kind === 'video') {
       camEnabled = true;
-      attachLocalVideo(publication.track);
+      // Track hazır mı? Eğer değilse biraz bekle
+      const tryAttach = (attempts = 0) => {
+        if (publication.track) {
+          attachLocalVideo(publication.track);
+        } else if (attempts < 10) {
+          setTimeout(() => tryAttach(attempts + 1), 100);
+        } else {
+          console.warn('Track 1 saniye sonra hala hazır değil');
+        }
+      };
+      tryAttach();
       const camBtn = document.getElementById('toggle-cam');
       if (camBtn) {
         camBtn.innerHTML = '<i class="fa-solid fa-video"></i>';
@@ -994,12 +1028,25 @@ async function setupVideo() {
     return;
   }
 
-  // ===== ADIM 4: Odadaki mevcut katılımcıları göster =====
+  // ===== ADIM 4: Odadaki mevcut katılımcıları göster + ZATEN YAYINLANAN TRACK'LERİ AL =====
   lkRoom.remoteParticipants.forEach((participant) => {
     const isTeacher = participant.identity.startsWith('teacher-');
     const role = isTeacher ? 'teacher' : 'student';
     const name = participant.name || extractNameFromIdentity(participant.identity);
     createCameraBox(participant.identity, role, name);
+
+    // ÖNEMLİ: Bu kişi zaten yayında olan track'leri varsa, onlara da bağlan
+    participant.trackPublications.forEach((publication) => {
+      console.log('🔍 Mevcut publication kontrol:', participant.identity, publication.kind, 'subscribed:', publication.isSubscribed);
+      if (publication.track && publication.kind === 'video') {
+        console.log('   → Mevcut video track\'i manuel bağlanıyor');
+        attachRemoteVideo(publication.track, participant);
+      } else if (publication.track && publication.kind === 'audio') {
+        const audioEl = publication.track.attach();
+        audioEl.style.display = 'none';
+        document.body.appendChild(audioEl);
+      }
+    });
   });
 
   // ===== ADIM 5: Mikrofon dene (BAĞIMSIZ try/catch) =====
@@ -1052,6 +1099,26 @@ function extractNameFromIdentity(identity) {
   }
   return identity;
 }
+
+// Verilen isim+rol için LiveKit'te zaten yayında olan track'leri bul ve bağla
+function attachExistingLiveKitTracksFor(name, role) {
+  if (!lkRoom) return;
+  lkRoom.remoteParticipants.forEach((participant) => {
+    const isTeacher = participant.identity.startsWith('teacher-');
+    const pRole = isTeacher ? 'teacher' : 'student';
+    const pName = participant.name || extractNameFromIdentity(participant.identity);
+    if (pName === name && pRole === role) {
+      console.log('🔄 Mevcut LiveKit track\'leri taranıyor:', participant.identity);
+      participant.trackPublications.forEach((publication) => {
+        if (publication.track && publication.kind === 'video') {
+          console.log('   → Video track manuel bağlanıyor');
+          attachRemoteVideo(publication.track, participant);
+        }
+      });
+    }
+  });
+}
+
 
 // İsimden iki harf üret: "Ahmet Yılmaz" → "AY", "Ali" → "A"
 function getInitials(name) {
@@ -1116,25 +1183,39 @@ function updateCameraLayout() {
 
 // Karşı tarafın videosunu doğru kutuya tak — isim eşleştirmesi ile
 function attachRemoteVideo(track, participant) {
+  console.log('📹 attachRemoteVideo çağrıldı:', participant.identity, 'track:', track.sid);
+
   const isTeacher = participant.identity.startsWith('teacher-');
   const role = isTeacher ? 'teacher' : 'student';
   const name = participant.name || extractNameFromIdentity(participant.identity);
+  console.log('   → role:', role, 'name:', name);
 
   // Bu isme ait Firebase kutusunu bul (öncelikli)
   let targetBox = null;
   participantBoxes.forEach((entry, id) => {
-    if (entry.name === name && entry.role === role) targetBox = entry.box;
+    if (entry.name === name && entry.role === role) {
+      targetBox = entry.box;
+      console.log('   ✓ Firebase kutusu bulundu, id:', id);
+    }
   });
 
   // Bulamazsan oluştur
   if (!targetBox) {
+    console.log('   ⚠ Firebase kutusu bulunamadı, yenisi oluşturulacak');
     targetBox = createCameraBox(participant.identity, role, name);
   }
 
+  // Eski videoları temizle, yenisini ekle
   targetBox.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
+  videoEl.style.width = '100%';
+  videoEl.style.height = '100%';
+  videoEl.style.objectFit = 'cover';
+  videoEl.autoplay = true;
+  videoEl.playsInline = true;
   targetBox.appendChild(videoEl);
   targetBox.classList.remove('no-video');
+  console.log('   ✓ Video kutuya eklendi');
 }
 
 // Kendi video'nu kendi Firebase kutuna koy
