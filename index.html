@@ -1250,12 +1250,12 @@ document.getElementById('toggle-mic').onclick = async () => {
 document.getElementById('toggle-cam').onclick = async () => {
   if (!lkRoom) return;
   camEnabled = !camEnabled;
+  console.log('🎛️ Toggle camera:', camEnabled ? 'AÇILIYOR' : 'KAPATILIYOR');
 
-  // LiveKit'e söyle: kamerayı aç/kapat
-  // Geri kalan UI işi LocalTrackPublished/Unpublished eventlerinde otomatik olacak
+  // LiveKit'e söyle
   await lkRoom.localParticipant.setCameraEnabled(camEnabled);
 
-  // Buton görselini hemen güncelle (UX için anında geri bildirim)
+  // Buton görselini güncelle
   const btn = document.getElementById('toggle-cam');
   btn.innerHTML = camEnabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
   btn.classList.toggle('bg-red-50', !camEnabled);
@@ -1263,15 +1263,49 @@ document.getElementById('toggle-cam').onclick = async () => {
   btn.classList.toggle('bg-indigo-50', camEnabled);
   btn.classList.toggle('text-indigo-600', camEnabled);
 
-  // Kamera KAPATILIYORSA — placeholder'ı hemen göster (event'i beklemeden)
-  if (!camEnabled) {
-    const entry = participantBoxes.get(myPresenceId);
-    if (entry) {
-      entry.box.querySelectorAll('video').forEach(v => v.remove());
-      entry.box.classList.add('no-video');
-    }
+  const entry = participantBoxes.get(myPresenceId);
+  if (!entry) {
+    console.warn('Kendi kutum bulunamadı:', myPresenceId);
+    return;
   }
-  // Kamera AÇILIYORSA — LocalTrackPublished eventi attachLocalVideo'yu çağıracak
+
+  if (!camEnabled) {
+    // === KAPATMA ===
+    entry.box.querySelectorAll('video').forEach(v => v.remove());
+    entry.box.classList.add('no-video');
+    console.log('✓ Kendi kutum: video kaldırıldı, placeholder aktif');
+  } else {
+    // === AÇMA ===
+    // Track'i manuel bul, attach et (event'i bekleme!)
+    // Birkaç deneme yap çünkü track hazır olmayabilir
+    let attempts = 0;
+    const tryAttach = () => {
+      attempts++;
+      const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
+      const pub = pubs.find(p => p.track && !p.track.isMuted);
+
+      if (pub && pub.track) {
+        // Track bulundu, attach et
+        entry.box.querySelectorAll('video').forEach(v => v.remove());
+        const videoEl = pub.track.attach();
+        videoEl.muted = true;
+        videoEl.autoplay = true;
+        videoEl.playsInline = true;
+        videoEl.style.width = '100%';
+        videoEl.style.height = '100%';
+        videoEl.style.objectFit = 'cover';
+        entry.box.appendChild(videoEl);
+        entry.box.classList.remove('no-video');
+        console.log('✓ Kendi kameram açıldı, video elementi takıldı (deneme', attempts + ')');
+      } else if (attempts < 20) {
+        // Henüz hazır değil, 100ms sonra tekrar dene
+        setTimeout(tryAttach, 100);
+      } else {
+        console.error('❌ Track 2 saniye sonra hala hazır değil');
+      }
+    };
+    tryAttach();
+  }
 };
 document.getElementById('leave-btn').onclick = async () => {
   if (confirm('Dersten ayrılmak istediğinizden emin misiniz?')) {
