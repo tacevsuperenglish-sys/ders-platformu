@@ -152,10 +152,98 @@
     position: relative;
     border: 2px solid white;
     box-shadow: 0 8px 24px rgba(67, 56, 202, 0.15), 0 2px 6px rgba(235, 11, 196, 0.08);
+    transition: border-color 0.3s, box-shadow 0.3s;
   }
-  /* Öğretmen her zaman en başta */
+  /* Sıralama: öğretmen → aktif öğrenci → diğerleri */
   .cam-wrap[data-role="teacher"] { order: -10; }
   .cam-wrap[data-role="student"] { order: 0; }
+  .cam-wrap.active-student { order: -5; }
+
+  /* AKTİF ÖĞRENCİ — yeşil çerçeve + glow */
+  @keyframes activeGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5), 0 8px 24px rgba(16, 185, 129, 0.2); }
+    50%      { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0), 0 8px 24px rgba(16, 185, 129, 0.2); }
+  }
+  .cam-wrap.active-student {
+    border-color: #10b981 !important;
+    border-width: 3px !important;
+    animation: activeGlow 2s ease-in-out infinite;
+  }
+
+  /* SÖZ VERME BUTONU (sadece öğretmen görür, öğrenci kutularında) */
+  .raise-hand-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    transition: all 0.2s;
+    color: #4338ca;
+    font-size: 14px;
+  }
+  .raise-hand-btn:hover {
+    transform: scale(1.1);
+    background: #eef2ff;
+  }
+  .raise-hand-btn.active {
+    background: #10b981;
+    color: white;
+  }
+  /* Buton sadece öğretmen görürken öğrenci kutusunda görünür */
+  body.is-teacher .cam-wrap[data-role="student"] .raise-hand-btn { display: flex; }
+  body:not(.is-teacher) .raise-hand-btn { display: none; }
+  body.is-teacher .cam-wrap[data-role="teacher"] .raise-hand-btn { display: none; }
+
+  /* KİLİT BUTONU (öğretmen kontrolünde) */
+  #lock-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: none;
+    cursor: pointer;
+    display: none; /* JS açar */
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  #lock-btn:hover { background: #e0e7ff; }
+  #lock-btn.locked {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  /* PASİF DURUM — sadece aktif olan tıklayabilir */
+  body.activity-locked #activity-area:not(.unlocked-for-me) {
+    pointer-events: none;
+    opacity: 0.7;
+    position: relative;
+  }
+  body.activity-locked #activity-area:not(.unlocked-for-me)::after {
+    content: "🔒 Şu an öğretmen başka bir öğrenciye söz vermiş";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(67, 56, 202, 0.95);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 100;
+  }
   .cam-wrap video { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; }
   .cam-wrap.no-video video { display: none; }
 
@@ -448,13 +536,17 @@
     <!-- Kutular JS ile dinamik oluşturulacak -->
   </aside>
 
-  <!-- KONTROL ÇUBUĞU (footer içine yer değiştirilebilir, şu an layout dışı) -->
+  <!-- KONTROL ÇUBUĞU -->
   <div id="control-bar" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 flex items-center gap-2 z-20" style="display:none;">
     <button id="toggle-mic" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Mikrofon">
       <i class="fa-solid fa-microphone"></i>
     </button>
     <button id="toggle-cam" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Kamera">
       <i class="fa-solid fa-video"></i>
+    </button>
+    <!-- Kilit butonu - sadece öğretmen için JS açar -->
+    <button id="lock-btn" title="Etkinlik kilidi (sadece aktif öğrenci tıklayabilir)">
+      <i class="fa-solid fa-lock-open"></i>
     </button>
     <button id="leave-btn" class="w-11 h-11 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition" title="Dersten Ayrıl">
       <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -625,6 +717,10 @@ document.getElementById('enter-btn').onclick = async () => {
   if (state.role === 'teacher') {
     badge.innerHTML = '<i class="fa-solid fa-chalkboard-user mr-1"></i> Öğretmen';
     badge.classList.add('tag-asistan');
+    // Öğretmenliğe işaret eden body class'ı (CSS bunu kullanır)
+    document.body.classList.add('is-teacher');
+    // Öğretmenin kilit butonu görünsün
+    document.getElementById('lock-btn').style.display = 'flex';
   } else {
     badge.innerHTML = '<i class="fa-solid fa-user-graduate mr-1"></i> Öğrenci';
     badge.classList.add('tag-veli');
@@ -1054,9 +1150,23 @@ function createCameraBox(identity, role, name) {
   if (participantBoxes.has(identity)) return participantBoxes.get(identity).box;
 
   const box = document.createElement('div');
-  box.className = 'cam-wrap no-video'; // varsayılan: kamera yok
+  box.className = 'cam-wrap no-video';
   box.dataset.identity = identity;
   box.dataset.role = role;
+  box.dataset.name = name;
+
+  // Söz verme butonu — sadece öğrenci kutularına, CSS sadece öğretmene gösterir
+  if (role === 'student') {
+    const handBtn = document.createElement('button');
+    handBtn.className = 'raise-hand-btn';
+    handBtn.title = 'Söz ver — bu öğrenci öne çıksın';
+    handBtn.innerHTML = '<i class="fa-solid fa-hand-point-up"></i>';
+    handBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleStudentTurn(identity, name);
+    };
+    box.appendChild(handBtn);
+  }
 
   // Placeholder (avatar + isim)
   const placeholder = document.createElement('div');
@@ -1084,6 +1194,12 @@ function createCameraBox(identity, role, name) {
   document.getElementById('cameras-container').appendChild(box);
   participantBoxes.set(identity, { box, role, name });
   updateCameraLayout();
+
+  // Aktif durumu uygula (Firebase'den okuduğumuz kişi bu mu?)
+  if (currentActiveStudent && currentActiveStudent.name === name) {
+    box.classList.add('active-student');
+  }
+
   return box;
 }
 
@@ -1599,6 +1715,130 @@ function showError(msg) {
 
 // Sayfa açılınca layout A class'ını body'e ekle
 document.body.classList.add('layout-a');
+
+// ====================================================================
+// SÖZ VERME SİSTEMİ - Aktif Öğrenci
+// ====================================================================
+let currentActiveStudent = null; // { name } veya null
+
+// Öğretmen söz butonuna bastı
+async function toggleStudentTurn(identity, name) {
+  if (state.role !== 'teacher') return;
+  if (!dbRoomRef) return;
+
+  const { update } = window.fb;
+
+  // Şu an bu öğrenci aktif mi? → kapat (toggle)
+  if (currentActiveStudent && currentActiveStudent.name === name) {
+    await update(dbRoomRef, { activeStudent: null });
+  } else {
+    // Yeni öğrenciye söz ver (eski varsa otomatik değişir)
+    await update(dbRoomRef, { activeStudent: { name: name, since: Date.now() } });
+  }
+}
+
+// Firebase'den gelen activeStudent'ı UI'a uygula (HERKES için)
+function applyActiveStudent(activeStudent) {
+  currentActiveStudent = activeStudent;
+
+  // Önce tüm kutulardan active-student sınıfını kaldır
+  document.querySelectorAll('.cam-wrap').forEach(box => {
+    box.classList.remove('active-student');
+    const btn = box.querySelector('.raise-hand-btn');
+    if (btn) btn.classList.remove('active');
+  });
+
+  // Yeni aktif öğrenciye sınıf ekle
+  if (activeStudent && activeStudent.name) {
+    participantBoxes.forEach((entry) => {
+      if (entry.name === activeStudent.name && entry.role === 'student') {
+        entry.box.classList.add('active-student');
+        const btn = entry.box.querySelector('.raise-hand-btn');
+        if (btn) btn.classList.add('active');
+      }
+    });
+  }
+
+  // Kilit varsa: bu kullanıcı aktif öğrenci mi? → etkinliği aç
+  refreshActivityLock();
+}
+
+// ====================================================================
+// ETKİNLİK KİLİDİ
+// ====================================================================
+let activityLocked = false;
+
+function applyActivityLock(locked) {
+  activityLocked = locked;
+  refreshActivityLock();
+
+  // Kilit butonu görselini güncelle (sadece öğretmen görür)
+  const btn = document.getElementById('lock-btn');
+  if (!btn) return;
+  if (locked) {
+    btn.classList.add('locked');
+    btn.innerHTML = '<i class="fa-solid fa-lock"></i>';
+    btn.title = 'Kilit AÇIK — sadece aktif öğrenci tıklayabilir (kaldırmak için tıkla)';
+  } else {
+    btn.classList.remove('locked');
+    btn.innerHTML = '<i class="fa-solid fa-lock-open"></i>';
+    btn.title = 'Kilit KAPALI — herkes etkinliklere tıklayabilir (açmak için tıkla)';
+  }
+}
+
+function refreshActivityLock() {
+  const activityArea = document.getElementById('activity-area');
+  if (!activityArea) return;
+
+  // Öğretmen her zaman tıklayabilir
+  if (state.role === 'teacher') {
+    document.body.classList.remove('activity-locked');
+    return;
+  }
+
+  // Kilit yok → herkes tıklayabilir
+  if (!activityLocked) {
+    document.body.classList.remove('activity-locked');
+    activityArea.classList.remove('unlocked-for-me');
+    return;
+  }
+
+  // Kilit var → sadece aktif öğrenci tıklayabilir
+  document.body.classList.add('activity-locked');
+  if (currentActiveStudent && currentActiveStudent.name === state.name) {
+    activityArea.classList.add('unlocked-for-me');
+  } else {
+    activityArea.classList.remove('unlocked-for-me');
+  }
+}
+
+// Öğretmen kilit butonuna bastı
+document.addEventListener('DOMContentLoaded', () => {
+  const lockBtn = document.getElementById('lock-btn');
+  if (lockBtn) {
+    lockBtn.onclick = async () => {
+      if (state.role !== 'teacher' || !dbRoomRef) return;
+      const { update } = window.fb;
+      await update(dbRoomRef, { activityLocked: !activityLocked });
+    };
+  }
+});
+// Yedek: DOMContentLoaded zaten geçtiyse şimdi bağla
+if (document.readyState === 'loading') {
+  // bekle
+} else {
+  setTimeout(() => {
+    const lockBtn = document.getElementById('lock-btn');
+    if (lockBtn && !lockBtn.onclick) {
+      lockBtn.onclick = async () => {
+        if (state.role !== 'teacher' || !dbRoomRef) return;
+        const { update } = window.fb;
+        await update(dbRoomRef, { activityLocked: !activityLocked });
+      };
+    }
+  }, 100);
+}
+
 
 </script>
 </body>
