@@ -492,38 +492,61 @@
     overflow: hidden;
   }
 
-  /* === RENK HAVUZLARI === */
+  /* === RENK HAVUZLARI — sadece kelimeye uygulanır, emojiye değil === */
   /* 1. Altın/Sarı yıldız */
-  .praise-text.color-gold {
+  .praise-text.color-gold .praise-word {
     background: linear-gradient(45deg, #fbbf24, #f59e0b, #fde047);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 4px 20px rgba(251, 191, 36, 0.6));
   }
-  /* 2. Mevcut marka mavi-pembe */
-  .praise-text.color-brand {
+  .praise-text.color-gold { filter: drop-shadow(0 4px 20px rgba(251, 191, 36, 0.6)); }
+
+  /* 2. TACEV marka mavi-pembe */
+  .praise-text.color-brand .praise-word {
     background: linear-gradient(45deg, #0075e5, #eb0bc4);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 4px 20px rgba(235, 11, 196, 0.5));
   }
-  /* 3. Zümrüt yeşil gradyan */
-  .praise-text.color-emerald {
-    background: linear-gradient(45deg, #10b981, #34d399, #6ee7b7);
+  .praise-text.color-brand { filter: drop-shadow(0 4px 20px rgba(235, 11, 196, 0.5)); }
+
+  /* 3. Klasik zümrüt yeşil (eski yeşil) */
+  .praise-text.color-emerald .praise-word {
+    background: linear-gradient(45deg, #059669, #10b981, #34d399);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 4px 20px rgba(16, 185, 129, 0.6));
   }
-  /* 4. Parlak gümüş */
-  .praise-text.color-silver {
-    background: linear-gradient(45deg, #cbd5e1, #f1f5f9, #94a3b8, #e2e8f0);
+  .praise-text.color-emerald { filter: drop-shadow(0 4px 20px rgba(16, 185, 129, 0.6)); }
+
+  /* 4. TACEV mavisi */
+  .praise-text.color-blue .praise-word {
+    background: linear-gradient(45deg, #0075e5, #38bdf8, #0ea5e9);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 4px 20px rgba(148, 163, 184, 0.7));
+  }
+  .praise-text.color-blue { filter: drop-shadow(0 4px 20px rgba(14, 165, 233, 0.7)); }
+
+  /* 5. Sıcak mercan (Disneyland) */
+  .praise-text.color-coral .praise-word {
+    background: linear-gradient(45deg, #ff6b6b, #ff8e72, #ffa07a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .praise-text.color-coral { filter: drop-shadow(0 4px 20px rgba(255, 107, 107, 0.6)); }
+
+  /* Emoji - kendi renginde kalır, gradient uygulanmaz */
+  .praise-emoji {
+    display: inline-block;
+    color: initial;
+    -webkit-text-fill-color: initial;
+    background: none;
+    -webkit-background-clip: initial;
+    background-clip: initial;
+    filter: none;
   }
 
   .praise-text {
@@ -2080,22 +2103,39 @@ function showPraise(text, emoji) {
   overlay.className = 'praise-overlay';
 
   // === RASTGELE RENK SEÇİMİ (4 havuz) ===
-  const colorPools = ['color-gold', 'color-brand', 'color-emerald', 'color-silver'];
+  const colorPools = ['color-gold', 'color-brand', 'color-emerald', 'color-blue', 'color-coral'];
   const randomColor = colorPools[Math.floor(Math.random() * colorPools.length)];
 
-  // Konfeti/parıltı renk paletleri (her renk havuzuyla uyumlu)
-  const colorPalettes = {
-    'color-gold':    ['#fbbf24', '#f59e0b', '#fde047', '#fef3c7', '#facc15'],
-    'color-brand':   ['#0075e5', '#eb0bc4', '#8b5cf6', '#a855f7', '#3b82f6'],
-    'color-emerald': ['#10b981', '#34d399', '#6ee7b7', '#059669', '#a7f3d0'],
-    'color-silver':  ['#cbd5e1', '#f1f5f9', '#94a3b8', '#e2e8f0', '#ffffff']
-  };
-  const palette = colorPalettes[randomColor];
+  // Efekt renkleri — yazının rengine BAĞLI DEĞİL, hep canlı ve çok renkli
+  // Bu sayede konfeti/havai fişek/parıltı kendi has orijinal renklerinde kalır
+  const palette = [
+    '#fbbf24', // altın sarı
+    '#f59e0b', // turuncu
+    '#ef4444', // kırmızı
+    '#ec4899', // pembe
+    '#eb0bc4', // marka pembe
+    '#a855f7', // mor
+    '#8b5cf6', // koyu mor
+    '#0075e5', // marka mavi
+    '#0ea5e9', // gök mavi
+    '#06b6d4', // turkuaz
+    '#10b981', // yeşil
+    '#34d399', // açık yeşil
+    '#fde047'  // sarı
+  ];
 
-  // Büyük yazı
+  // Büyük yazı — emoji ayrı span'da olsun ki gradient onu da silmesin
   const textEl = document.createElement('div');
   textEl.className = `praise-text ${randomColor}`;
-  textEl.textContent = `${emoji} ${text}`;
+  const emojiSpan = document.createElement('span');
+  emojiSpan.className = 'praise-emoji';
+  emojiSpan.textContent = emoji;
+  const wordSpan = document.createElement('span');
+  wordSpan.className = 'praise-word';
+  wordSpan.textContent = text;
+  textEl.appendChild(emojiSpan);
+  textEl.appendChild(document.createTextNode(' '));
+  textEl.appendChild(wordSpan);
   overlay.appendChild(textEl);
 
   // === RASTGELE EFEKT SEÇİMİ (3 efekt) ===
