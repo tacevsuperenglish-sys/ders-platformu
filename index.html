@@ -439,7 +439,7 @@
   }
 
   
-  /* Parmak kaldırma — sarı renk (öğretmenin görüntüsünde) */
+  /* Parmak kaldırma — sarı renk (öğretmenin görüntüsünde el butonu) */
   .cam-wrap.hand-raised .raise-hand-btn {
     background: #fbbf24 !important;
     color: #78350f !important;
@@ -450,10 +450,33 @@
     50% { transform: scale(1.15); }
   }
 
-  /* Öğrencinin kendi parmak butonu */
+  /* Parmak kaldırma — SADECE öğrencinin KENDİ kutusunda görünür (sol üst) */
+  body:not(.is-teacher) .cam-wrap.hand-raised.my-box::after {
+    content: '\f0a6 Parmak Kaldırdım';
+    font-family: 'Font Awesome 6 Free', 'Inter Tight', system-ui, sans-serif;
+    font-weight: 900;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 6px 12px;
+    background: #fbbf24;
+    color: #78350f;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.5);
+    animation: handPulse 1.5s ease-in-out infinite;
+    z-index: 4;
+    white-space: nowrap;
+  }
+
+  /* Öğrencinin kendi parmak butonu (alt panel) — sarı yanar */
   #raise-hand-btn-student.raised {
     background: #fbbf24 !important;
     color: #78350f !important;
+    animation: handPulse 1.5s ease-in-out infinite;
   }
 
   /* Force-muted/disabled göstergeleri (kutuda) */
@@ -606,7 +629,7 @@
     </button>
     <!-- Öğrenci parmak kaldırma butonu - sadece öğrenci için JS açar -->
     <button id="raise-hand-btn-student" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" style="display:none;" title="Parmak kaldır">
-      <i class="fa-solid fa-hand"></i>
+      <i class="fa-solid fa-hand-point-up"></i>
     </button>
     <!-- Kilit butonu - sadece öğretmen için JS açar -->
     <button id="lock-btn" title="Etkinlik kilidi (sadece aktif öğrenci tıklayabilir)">
@@ -1244,6 +1267,11 @@ function createCameraBox(identity, role, name) {
   box.dataset.identity = identity;
   box.dataset.role = role;
   box.dataset.name = name;
+
+  // Kendi kutum mu? → my-box class'ı ekle (parmak rozeti sadece burada görünür)
+  if (name === state.name && role === state.role) {
+    box.classList.add('my-box');
+  }
 
   // Söz verme butonu — sadece öğrenci kutularına, CSS sadece öğretmene gösterir
   if (role === 'student') {
@@ -1968,8 +1996,8 @@ function applyRaisedHands(raisedHands) {
       const isRaised = firebaseRaisedHands[state.name] === true;
       myBtn.classList.toggle('raised', isRaised);
       myBtn.innerHTML = isRaised
-        ? '<i class="fa-solid fa-hand"></i>'
-        : '<i class="fa-regular fa-hand"></i>';
+        ? '<i class="fa-solid fa-hand-point-up"></i>'
+        : '<i class="fa-regular fa-hand-point-up"></i>';
     }
   }
 }
