@@ -260,22 +260,32 @@
   }
   /* Küçük kutular için avatar boyutu küçülsün */
 
-  .cam-noVideoIcon {
+  /* Sağ üst köşedeki durum göstergeleri (kamera & mikrofon kapalı) */
+  .cam-status-indicators {
     position: absolute;
     top: 10px;
     right: 10px;
-    width: 24px;
-    height: 24px;
-    background: rgba(0,0,0,0.5);
-    border-radius: 6px;
     display: flex;
+    gap: 6px;
+    z-index: 4;
+  }
+  .cam-status-icon {
+    width: 28px;
+    height: 28px;
+    background: rgba(239, 68, 68, 0.95);
+    color: white;
+    border-radius: 8px;
+    display: none;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    color: rgba(255,255,255,0.8);
-    z-index: 2;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   }
-  .cam-wrap:not(.no-video) .cam-noVideoIcon { display: none; }
+  .cam-wrap.no-video .cam-status-icon.cam-off-icon { display: flex; }
+  .cam-wrap.mic-muted .cam-status-icon.mic-off-icon { display: flex; }
+
+  /* Eski cam-noVideoIcon — geriye dönük uyumluluk için boş bırak */
+  .cam-noVideoIcon { display: none !important; }
 
   .cam-label {
     position: absolute;
@@ -452,24 +462,24 @@
 
   /* Parmak kaldırma — SADECE öğrencinin KENDİ kutusunda görünür (sol üst) */
   body:not(.is-teacher) .cam-wrap.hand-raised.my-box::after {
-    content: '\f0a6 Parmak Kaldırdım';
-    font-family: 'Font Awesome 6 Free', 'Inter Tight', system-ui, sans-serif;
+    content: '\f0a6';
+    font-family: 'Font Awesome 6 Free';
     font-weight: 900;
     position: absolute;
     top: 10px;
     left: 10px;
-    padding: 6px 12px;
+    width: 32px;
+    height: 32px;
     background: #fbbf24;
     color: #78350f;
     border-radius: 8px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.5);
+    justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     animation: handPulse 1.5s ease-in-out infinite;
     z-index: 4;
-    white-space: nowrap;
   }
 
   /* Öğrencinin kendi parmak butonu (alt panel) — sarı yanar */
@@ -479,28 +489,9 @@
     animation: handPulse 1.5s ease-in-out infinite;
   }
 
-  /* Force-muted/disabled göstergeleri (kutuda) */
-  .cam-wrap.force-muted::before,
-  .cam-wrap.force-disabled::before {
-    content: '';
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 4;
-    background: rgba(239, 68, 68, 0.9);
-    color: white;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Font Awesome 6 Free';
-    font-weight: 900;
-    font-size: 12px;
-  }
-  .cam-wrap.force-muted::before { content: '\f131'; right: 42px; } /* mic-slash */
-  .cam-wrap.force-disabled::before { content: '\f4e2'; } /* video-slash */
+  /* Force durumu - öğretmen tarafından zorla kapatılan kamera/mic */
+  .cam-wrap.force-muted { /* JS mic-muted class'ı da ekliyor */ }
+  .cam-wrap.force-disabled { /* JS no-video class'ı da ekliyor */ }
 
   @keyframes shake {
     0%,100% { transform: translateX(0); }
@@ -1117,15 +1108,22 @@ async function setupVideo() {
   });
 
   lkRoom.on(LivekitClient.RoomEvent.TrackMuted, (publication, participant) => {
+    const entry = findBoxForParticipant(participant);
+    if (!entry) return;
     if (publication.kind === 'video') {
-      const entry = participantBoxes.get(participant.identity);
-      if (entry) entry.box.classList.add('no-video');
+      entry.box.classList.add('no-video');
+      entry.box.querySelectorAll('video').forEach(v => v.remove());
+    } else if (publication.kind === 'audio') {
+      entry.box.classList.add('mic-muted');
     }
   });
   lkRoom.on(LivekitClient.RoomEvent.TrackUnmuted, (publication, participant) => {
+    const entry = findBoxForParticipant(participant);
+    if (!entry) return;
     if (publication.kind === 'video') {
-      const entry = participantBoxes.get(participant.identity);
-      if (entry) entry.box.classList.remove('no-video');
+      entry.box.classList.remove('no-video');
+    } else if (publication.kind === 'audio') {
+      entry.box.classList.remove('mic-muted');
     }
   });
 
@@ -1183,6 +1181,9 @@ async function setupVideo() {
   try {
     await lkRoom.localParticipant.setMicrophoneEnabled(true);
     console.log('✓ Mikrofon açıldı');
+    // Kendi kutumda mikrofonun açık olduğunu işaretle
+    const entry = participantBoxes.get(myPresenceId);
+    if (entry) entry.box.classList.remove('mic-muted');
   } catch (micErr) {
     console.warn('⚠ Mikrofon izni yok:', micErr.message);
     micEnabled = false;
@@ -1192,6 +1193,9 @@ async function setupVideo() {
       micBtn.classList.add('bg-red-50', 'text-red-600');
       micBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
     }
+    // Kendi kutuma mic-muted ekle (kendim göreyim)
+    const entry = participantBoxes.get(myPresenceId);
+    if (entry) entry.box.classList.add('mic-muted');
   }
 
   // ===== ADIM 6: Kamera dene (BAĞIMSIZ try/catch) =====
@@ -1229,6 +1233,17 @@ function extractNameFromIdentity(identity) {
   }
   return identity;
 }
+// Bir LiveKit participant'ın hangi Firebase kutusuna ait olduğunu bul (isim eşleştirmesi)
+function findBoxForParticipant(participant) {
+  const isTeacher = participant.identity.startsWith('teacher-');
+  const role = isTeacher ? 'teacher' : 'student';
+  const name = participant.name || extractNameFromIdentity(participant.identity);
+  for (const [id, entry] of participantBoxes) {
+    if (entry.name === name && entry.role === role) return entry;
+  }
+  return null;
+}
+
 
 // Verilen isim+rol için LiveKit'te zaten yayında olan track'leri bul ve bağla
 function attachExistingLiveKitTracksFor(name, role) {
@@ -1295,11 +1310,14 @@ function createCameraBox(identity, role, name) {
   `;
   box.appendChild(placeholder);
 
-  // "Kamera kapalı" ikonu
-  const noVideoIcon = document.createElement('div');
-  noVideoIcon.className = 'cam-noVideoIcon';
-  noVideoIcon.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
-  box.appendChild(noVideoIcon);
+  // Durum göstergeleri (sağ üst — kamera ve mikrofon kapalı)
+  const indicators = document.createElement('div');
+  indicators.className = 'cam-status-indicators';
+  indicators.innerHTML = `
+    <div class="cam-status-icon mic-off-icon" title="Mikrofon kapalı"><i class="fa-solid fa-microphone-slash"></i></div>
+    <div class="cam-status-icon cam-off-icon" title="Kamera kapalı"><i class="fa-solid fa-video-slash"></i></div>
+  `;
+  box.appendChild(indicators);
 
   // Alt isim etiketi
   const label = document.createElement('span');
@@ -1410,6 +1428,9 @@ document.getElementById('toggle-mic').onclick = async () => {
   btn.classList.toggle('text-red-600', !micEnabled);
   btn.classList.toggle('bg-indigo-50', micEnabled);
   btn.classList.toggle('text-indigo-600', micEnabled);
+  // Kendi kutuma mic durumunu uygula
+  const entry = participantBoxes.get(myPresenceId);
+  if (entry) entry.box.classList.toggle('mic-muted', !micEnabled);
 };
 document.getElementById('toggle-cam').onclick = async () => {
   if (!lkRoom) return;
