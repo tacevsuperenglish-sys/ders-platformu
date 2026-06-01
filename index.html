@@ -223,26 +223,9 @@
     color: #dc2626;
   }
 
-  /* PASİF DURUM — sadece aktif olan tıklayabilir */
+  /* PASİF DURUM — sadece aktif öğrenci etkileşebilir, görsel olarak hiçbir şey değişmez */
   body.activity-locked #activity-area:not(.unlocked-for-me) {
     pointer-events: none;
-    opacity: 0.7;
-    position: relative;
-  }
-  body.activity-locked #activity-area:not(.unlocked-for-me)::after {
-    content: "🔒 Şu an öğretmen başka bir öğrenciye söz vermiş";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(67, 56, 202, 0.95);
-    color: white;
-    padding: 12px 20px;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 14px;
-    pointer-events: none;
-    z-index: 100;
   }
   .cam-wrap video { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; }
   .cam-wrap.no-video video { display: none; }
@@ -828,8 +811,7 @@ async function setupFirebase() {
   // === ANA OYUN STATE DİNLE (sayfa, cevaplar, layout) ===
   onValue(dbRoomRef, (snap) => {
     const data = snap.val();
-    console.log('📥 Firebase onValue tetiklendi! Data:', data);
-    if (!data) { console.log('  → data boş, çıkıyorum'); return; }
+    if (!data) return;
     if (data.currentPage !== undefined && data.currentPage !== state.currentPage) {
       state.currentPage = data.currentPage;
       renderActivity();
@@ -839,10 +821,8 @@ async function setupFirebase() {
       applyAnswerToUI(state.currentPage, data.answers[state.currentPage]);
     }
     // Aktif öğrenci değişikliği
-    console.log('  → activeStudent çağrılıyor:', data.activeStudent);
     applyActiveStudent(data.activeStudent || null);
     // Etkinlik kilidi değişikliği
-    console.log('  → activityLocked çağrılıyor:', data.activityLocked);
     applyActivityLock(data.activityLocked || false);
   });
 }
@@ -1731,25 +1711,21 @@ document.body.classList.add('layout-a');
 
 // Öğretmen söz butonuna bastı
 async function toggleStudentTurn(identity, name) {
-  console.log('🖐️ toggleStudentTurn çağrıldı:', name, 'rol:', state.role);
-  if (state.role !== 'teacher') { console.log('  → öğretmen değil, iptal'); return; }
-  if (!dbRoomRef) { console.log('  → dbRoomRef yok, iptal'); return; }
+  if (state.role !== 'teacher') return;
+  if (!dbRoomRef) return;
 
   const { update } = window.fb;
 
   // Şu an bu öğrenci aktif mi? → kapat (toggle)
   if (currentActiveStudent && currentActiveStudent.name === name) {
-    console.log('  → Aynı öğrenci, kapatılıyor');
     await update(dbRoomRef, { activeStudent: null });
   } else {
-    console.log('  → Yeni öğrenciye söz veriliyor:', name);
     await update(dbRoomRef, { activeStudent: { name: name, since: Date.now() } });
   }
 }
 
 // Firebase'den gelen activeStudent'ı UI'a uygula (HERKES için)
 function applyActiveStudent(activeStudent) {
-  console.log('🎯 applyActiveStudent çağrıldı:', activeStudent);
   currentActiveStudent = activeStudent;
 
   // Önce tüm kutulardan active-student sınıfını kaldır
@@ -1826,7 +1802,6 @@ document.getElementById('lock-btn').onclick = async () => {
   if (state.role !== 'teacher' || !dbRoomRef) return;
   const { update } = window.fb;
   await update(dbRoomRef, { activityLocked: !activityLocked });
-  console.log('🔒 Kilit toggle:', !activityLocked);
 };
 
 
