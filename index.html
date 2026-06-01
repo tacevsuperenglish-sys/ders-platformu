@@ -1122,6 +1122,17 @@ async function setupVideo() {
     if (!entry) return;
     if (publication.kind === 'video') {
       entry.box.classList.remove('no-video');
+      // Video tekrar aç - track'i yeniden attach et!
+      if (publication.track) {
+        entry.box.querySelectorAll('video').forEach(v => v.remove());
+        const videoEl = publication.track.attach();
+        videoEl.style.width = '100%';
+        videoEl.style.height = '100%';
+        videoEl.style.objectFit = 'cover';
+        videoEl.autoplay = true;
+        videoEl.playsInline = true;
+        entry.box.appendChild(videoEl);
+      }
     } else if (publication.kind === 'audio') {
       entry.box.classList.remove('mic-muted');
     }
