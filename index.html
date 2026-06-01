@@ -654,6 +654,11 @@ let state = {
 };
 let dbRoomRef = null;
 
+// === SÖZ VERME + KİLİT SİSTEMİ — global değişkenler (en başta) ===
+let currentActiveStudent = null;
+let activityLocked = false;
+let myPresenceId = null;
+
 // ====================================================================
 // LOBI: ROL SEÇİMİ
 // ====================================================================
@@ -836,8 +841,6 @@ async function setupFirebase() {
   });
 }
 
-// Presence ID'mi global tut
-let myPresenceId = null;
 
 async function syncAnswer(pageIndex, answerData) {
   const { update } = window.fb;
@@ -1719,26 +1722,28 @@ document.body.classList.add('layout-a');
 // ====================================================================
 // SÖZ VERME SİSTEMİ - Aktif Öğrenci
 // ====================================================================
-let currentActiveStudent = null; // { name } veya null
 
 // Öğretmen söz butonuna bastı
 async function toggleStudentTurn(identity, name) {
-  if (state.role !== 'teacher') return;
-  if (!dbRoomRef) return;
+  console.log('🖐️ toggleStudentTurn çağrıldı:', name, 'rol:', state.role);
+  if (state.role !== 'teacher') { console.log('  → öğretmen değil, iptal'); return; }
+  if (!dbRoomRef) { console.log('  → dbRoomRef yok, iptal'); return; }
 
   const { update } = window.fb;
 
   // Şu an bu öğrenci aktif mi? → kapat (toggle)
   if (currentActiveStudent && currentActiveStudent.name === name) {
+    console.log('  → Aynı öğrenci, kapatılıyor');
     await update(dbRoomRef, { activeStudent: null });
   } else {
-    // Yeni öğrenciye söz ver (eski varsa otomatik değişir)
+    console.log('  → Yeni öğrenciye söz veriliyor:', name);
     await update(dbRoomRef, { activeStudent: { name: name, since: Date.now() } });
   }
 }
 
 // Firebase'den gelen activeStudent'ı UI'a uygula (HERKES için)
 function applyActiveStudent(activeStudent) {
+  console.log('🎯 applyActiveStudent çağrıldı:', activeStudent);
   currentActiveStudent = activeStudent;
 
   // Önce tüm kutulardan active-student sınıfını kaldır
@@ -1766,8 +1771,6 @@ function applyActiveStudent(activeStudent) {
 // ====================================================================
 // ETKİNLİK KİLİDİ
 // ====================================================================
-let activityLocked = false;
-
 function applyActivityLock(locked) {
   activityLocked = locked;
   refreshActivityLock();
@@ -1812,32 +1815,13 @@ function refreshActivityLock() {
   }
 }
 
-// Öğretmen kilit butonuna bastı
-document.addEventListener('DOMContentLoaded', () => {
-  const lockBtn = document.getElementById('lock-btn');
-  if (lockBtn) {
-    lockBtn.onclick = async () => {
-      if (state.role !== 'teacher' || !dbRoomRef) return;
-      const { update } = window.fb;
-      await update(dbRoomRef, { activityLocked: !activityLocked });
-    };
-  }
-});
-// Yedek: DOMContentLoaded zaten geçtiyse şimdi bağla
-if (document.readyState === 'loading') {
-  // bekle
-} else {
-  setTimeout(() => {
-    const lockBtn = document.getElementById('lock-btn');
-    if (lockBtn && !lockBtn.onclick) {
-      lockBtn.onclick = async () => {
-        if (state.role !== 'teacher' || !dbRoomRef) return;
-        const { update } = window.fb;
-        await update(dbRoomRef, { activityLocked: !activityLocked });
-      };
-    }
-  }, 100);
-}
+// Öğretmen kilit butonuna bastı (basit, anında çalışır)
+document.getElementById('lock-btn').onclick = async () => {
+  if (state.role !== 'teacher' || !dbRoomRef) return;
+  const { update } = window.fb;
+  await update(dbRoomRef, { activityLocked: !activityLocked });
+  console.log('🔒 Kilit toggle:', !activityLocked);
+};
 
 
 </script>
