@@ -159,14 +159,14 @@
   .cam-wrap[data-role="student"] { order: 0; }
   .cam-wrap.active-student { order: -5; }
 
-  /* AKTİF ÖĞRENCİ — yeşil çerçeve + glow */
+  /* AKTİF ÖĞRENCİ — KALIN yeşil çerçeve + glow */
   @keyframes activeGlow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5), 0 8px 24px rgba(16, 185, 129, 0.2); }
-    50%      { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0), 0 8px 24px rgba(16, 185, 129, 0.2); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6), 0 8px 24px rgba(16, 185, 129, 0.3); }
+    50%      { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0), 0 8px 24px rgba(16, 185, 129, 0.3); }
   }
   .cam-wrap.active-student {
     border-color: #10b981 !important;
-    border-width: 3px !important;
+    border-width: 6px !important;
     animation: activeGlow 2s ease-in-out infinite;
   }
 
@@ -402,6 +402,83 @@
     background: rgba(239, 68, 68, 0.25);
   }
 
+
+  /* SAĞ TIK MENÜSÜ (öğretmen → öğrenci kamera/mic kontrolü) */
+  .context-menu {
+    position: fixed;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    padding: 6px;
+    z-index: 1000;
+    min-width: 220px;
+    font-size: 14px;
+  }
+  .context-menu-item {
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.15s;
+    color: #1f2937;
+  }
+  .context-menu-item:hover { background: #f3f4f6; }
+  .context-menu-item.disabled-state { color: #ef4444; }
+  .context-menu-item.disabled-state:hover { background: #fef2f2; }
+  .context-menu-item i { width: 16px; text-align: center; }
+  .context-menu-header {
+    padding: 8px 14px 4px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #6b7280;
+    letter-spacing: 0.05em;
+  }
+
+  
+  /* Parmak kaldırma — sarı renk (öğretmenin görüntüsünde) */
+  .cam-wrap.hand-raised .raise-hand-btn {
+    background: #fbbf24 !important;
+    color: #78350f !important;
+    animation: handPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes handPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+
+  /* Öğrencinin kendi parmak butonu */
+  #raise-hand-btn-student.raised {
+    background: #fbbf24 !important;
+    color: #78350f !important;
+  }
+
+  /* Force-muted/disabled göstergeleri (kutuda) */
+  .cam-wrap.force-muted::before,
+  .cam-wrap.force-disabled::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 4;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 12px;
+  }
+  .cam-wrap.force-muted::before { content: '\f131'; right: 42px; } /* mic-slash */
+  .cam-wrap.force-disabled::before { content: '\f4e2'; } /* video-slash */
+
   @keyframes shake {
     0%,100% { transform: translateX(0); }
     25% { transform: translateX(-4px); }
@@ -527,6 +604,10 @@
     <button id="toggle-cam" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Kamera">
       <i class="fa-solid fa-video"></i>
     </button>
+    <!-- Öğrenci parmak kaldırma butonu - sadece öğrenci için JS açar -->
+    <button id="raise-hand-btn-student" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" style="display:none;" title="Parmak kaldır">
+      <i class="fa-solid fa-hand"></i>
+    </button>
     <!-- Kilit butonu - sadece öğretmen için JS açar -->
     <button id="lock-btn" title="Etkinlik kilidi (sadece aktif öğrenci tıklayabilir)">
       <i class="fa-solid fa-lock-open"></i>
@@ -555,6 +636,20 @@
       Sonraki <i class="fa-solid fa-arrow-right"></i>
     </button>
   </footer>
+</div>
+
+
+<!-- ÖĞRETMEN SAĞ TIK MENÜSÜ -->
+<div id="teacher-context-menu" class="context-menu" style="display:none;">
+  <div class="context-menu-header" id="ctx-student-name">Öğrenci</div>
+  <div class="context-menu-item" id="ctx-toggle-mic">
+    <i class="fa-solid fa-microphone"></i>
+    <span id="ctx-mic-label">Mikrofonunu kapat</span>
+  </div>
+  <div class="context-menu-item" id="ctx-toggle-cam">
+    <i class="fa-solid fa-video"></i>
+    <span id="ctx-cam-label">Kamerasını kapat</span>
+  </div>
 </div>
 
 <!-- ============ HATA TOAST'I ============ -->
@@ -712,6 +807,8 @@ document.getElementById('enter-btn').onclick = async () => {
   } else {
     badge.innerHTML = '<i class="fa-solid fa-user-graduate mr-1"></i> Öğrenci';
     badge.classList.add('tag-veli');
+    // Öğrenci parmak kaldırma butonunu göster
+    document.getElementById('raise-hand-btn-student').style.display = 'flex';
   }
 
   // Ders bilgisi
@@ -824,6 +921,10 @@ async function setupFirebase() {
     applyActiveStudent(data.activeStudent || null);
     // Etkinlik kilidi değişikliği
     applyActivityLock(data.activityLocked || false);
+    // Force kamera/mic durumları (öğretmen yönetimi)
+    applyForceStates(data.forceStates || {});
+    // Parmak kaldıran öğrenciler
+    applyRaisedHands(data.raisedHands || {});
   });
 }
 
@@ -1187,6 +1288,15 @@ function createCameraBox(identity, role, name) {
   // Aktif durumu uygula (Firebase'den okuduğumuz kişi bu mu?)
   if (currentActiveStudent && currentActiveStudent.name === name) {
     box.classList.add('active-student');
+  }
+
+  // ÖĞRETMEN SAĞ TIK MENÜSÜ — sadece öğrenci kutularında, öğretmenin tarayıcısında
+  if (role === 'student') {
+    box.addEventListener('contextmenu', (e) => {
+      if (state.role !== 'teacher') return;
+      e.preventDefault();
+      openTeacherContextMenu(e.clientX, e.clientY, name);
+    });
   }
 
   return box;
@@ -1705,6 +1815,184 @@ function showError(msg) {
 // Sayfa açılınca layout A class'ını body'e ekle
 document.body.classList.add('layout-a');
 
+
+// ====================================================================
+// ÖĞRETMEN SAĞ TIK MENÜSÜ - öğrencinin kamera/mic'ini zorla kapat/aç
+// ====================================================================
+let ctxMenuStudentName = null;
+
+function openTeacherContextMenu(x, y, studentName) {
+  ctxMenuStudentName = studentName;
+  const menu = document.getElementById('teacher-context-menu');
+  document.getElementById('ctx-student-name').textContent = studentName;
+
+  // Firebase'den bu öğrencinin force durumunu oku
+  const forceState = (firebaseForceStates && firebaseForceStates[studentName]) || {};
+  const micForceMuted = forceState.micMuted === true;
+  const camForceDisabled = forceState.camDisabled === true;
+
+  // Etiketleri güncelle (toggle mantığı)
+  document.getElementById('ctx-mic-label').textContent =
+    micForceMuted ? 'Mikrofonunu AÇ (şu an zorla kapalı)' : 'Mikrofonunu KAPAT';
+  document.getElementById('ctx-cam-label').textContent =
+    camForceDisabled ? 'Kamerasını AÇ (şu an zorla kapalı)' : 'Kamerasını KAPAT';
+
+  const micItem = document.getElementById('ctx-toggle-mic');
+  const camItem = document.getElementById('ctx-toggle-cam');
+  micItem.classList.toggle('disabled-state', micForceMuted);
+  camItem.classList.toggle('disabled-state', camForceDisabled);
+
+  // Menüyü göster
+  menu.style.left = Math.min(x, window.innerWidth - 240) + 'px';
+  menu.style.top = Math.min(y, window.innerHeight - 150) + 'px';
+  menu.style.display = 'block';
+}
+
+function closeTeacherContextMenu() {
+  document.getElementById('teacher-context-menu').style.display = 'none';
+  ctxMenuStudentName = null;
+}
+
+// Tıklama dışarıdaysa menüyü kapat
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('teacher-context-menu');
+  if (menu && !menu.contains(e.target)) closeTeacherContextMenu();
+});
+
+// Mic toggle
+document.getElementById('ctx-toggle-mic').onclick = async () => {
+  if (!ctxMenuStudentName || !dbRoomRef) return;
+  const { update } = window.fb;
+  const cur = (firebaseForceStates && firebaseForceStates[ctxMenuStudentName]) || {};
+  await update(dbRoomRef, {
+    [`forceStates/${ctxMenuStudentName}/micMuted`]: !cur.micMuted
+  });
+  closeTeacherContextMenu();
+};
+
+// Cam toggle
+document.getElementById('ctx-toggle-cam').onclick = async () => {
+  if (!ctxMenuStudentName || !dbRoomRef) return;
+  const { update } = window.fb;
+  const cur = (firebaseForceStates && firebaseForceStates[ctxMenuStudentName]) || {};
+  await update(dbRoomRef, {
+    [`forceStates/${ctxMenuStudentName}/camDisabled`]: !cur.camDisabled
+  });
+  closeTeacherContextMenu();
+};
+
+// Firebase'den force state takibi (herkes dinler)
+let firebaseForceStates = {};
+function applyForceStates(forceStates) {
+  firebaseForceStates = forceStates || {};
+
+  // Tüm öğrenci kutularına force göstergesini uygula
+  participantBoxes.forEach((entry) => {
+    if (entry.role !== 'student') return;
+    const fs = firebaseForceStates[entry.name] || {};
+    entry.box.classList.toggle('force-muted', fs.micMuted === true);
+    entry.box.classList.toggle('force-disabled', fs.camDisabled === true);
+  });
+
+  // Eğer ben öğrenciysem ve bana force uygulanmışsa, mic/cam'imi kapatmaya çalış
+  if (state.role === 'student' && lkRoom) {
+    const myForce = firebaseForceStates[state.name] || {};
+    if (myForce.micMuted === true && micEnabled) {
+      // Öğretmen mic'imi kapatmış
+      lkRoom.localParticipant.setMicrophoneEnabled(false).catch(() => {});
+      micEnabled = false;
+      const btn = document.getElementById('toggle-mic');
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+        btn.classList.add('bg-red-50', 'text-red-600');
+        btn.classList.remove('bg-indigo-50', 'text-indigo-600');
+        btn.disabled = true; // Açamasın
+        btn.style.opacity = '0.6';
+        btn.title = 'Öğretmen mikrofonunuzu kapattı';
+      }
+    } else if (myForce.micMuted !== true) {
+      const btn = document.getElementById('toggle-mic');
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.title = 'Mikrofon';
+      }
+    }
+    if (myForce.camDisabled === true && camEnabled) {
+      lkRoom.localParticipant.setCameraEnabled(false).catch(() => {});
+      camEnabled = false;
+      const btn = document.getElementById('toggle-cam');
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+        btn.classList.add('bg-red-50', 'text-red-600');
+        btn.classList.remove('bg-indigo-50', 'text-indigo-600');
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.title = 'Öğretmen kameranızı kapattı';
+      }
+      const entry = participantBoxes.get(myPresenceId);
+      if (entry) {
+        entry.box.querySelectorAll('video').forEach(v => v.remove());
+        entry.box.classList.add('no-video');
+      }
+    } else if (myForce.camDisabled !== true) {
+      const btn = document.getElementById('toggle-cam');
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.title = 'Kamera';
+      }
+    }
+  }
+}
+
+// ====================================================================
+// ÖĞRENCİ PARMAK KALDIRMA SİSTEMİ
+// ====================================================================
+let firebaseRaisedHands = {};
+
+function applyRaisedHands(raisedHands) {
+  firebaseRaisedHands = raisedHands || {};
+
+  // Tüm öğrenci kutularına işaret koy/kaldır
+  participantBoxes.forEach((entry) => {
+    if (entry.role !== 'student') return;
+    const isRaised = firebaseRaisedHands[entry.name] === true;
+    entry.box.classList.toggle('hand-raised', isRaised);
+  });
+
+  // Kendi durumumu butona yansıt
+  if (state.role === 'student') {
+    const myBtn = document.getElementById('raise-hand-btn-student');
+    if (myBtn) {
+      const isRaised = firebaseRaisedHands[state.name] === true;
+      myBtn.classList.toggle('raised', isRaised);
+      myBtn.innerHTML = isRaised
+        ? '<i class="fa-solid fa-hand"></i>'
+        : '<i class="fa-regular fa-hand"></i>';
+    }
+  }
+}
+
+// Öğrenci parmak kaldırma butonu
+document.getElementById('raise-hand-btn-student').onclick = async () => {
+  if (state.role !== 'student' || !dbRoomRef) return;
+  const { update } = window.fb;
+  const isRaised = firebaseRaisedHands[state.name] === true;
+  await update(dbRoomRef, {
+    [`raisedHands/${state.name}`]: !isRaised
+  });
+};
+
+// Öğretmen, parmak kaldırmış öğrenciye söz verince parmağı indir
+async function autoLowerHandWhenSelected(name) {
+  if (firebaseRaisedHands[name] === true && dbRoomRef) {
+    const { update } = window.fb;
+    await update(dbRoomRef, { [`raisedHands/${name}`]: false });
+  }
+}
+
+
 // ====================================================================
 // SÖZ VERME SİSTEMİ - Aktif Öğrenci
 // ====================================================================
@@ -1721,6 +2009,8 @@ async function toggleStudentTurn(identity, name) {
     await update(dbRoomRef, { activeStudent: null });
   } else {
     await update(dbRoomRef, { activeStudent: { name: name, since: Date.now() } });
+    // Söz verirken parmağı otomatik indir
+    autoLowerHandWhenSelected(name);
   }
 }
 
