@@ -837,7 +837,10 @@ async function setupFirebase() {
       state.answers[state.currentPage] = data.answers[state.currentPage];
       applyAnswerToUI(state.currentPage, data.answers[state.currentPage]);
     }
-
+    // Aktif öğrenci değişikliği
+    applyActiveStudent(data.activeStudent || null);
+    // Etkinlik kilidi değişikliği
+    applyActivityLock(data.activityLocked || false);
   });
 }
 
