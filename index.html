@@ -828,7 +828,8 @@ async function setupFirebase() {
   // === ANA OYUN STATE DİNLE (sayfa, cevaplar, layout) ===
   onValue(dbRoomRef, (snap) => {
     const data = snap.val();
-    if (!data) return;
+    console.log('📥 Firebase onValue tetiklendi! Data:', data);
+    if (!data) { console.log('  → data boş, çıkıyorum'); return; }
     if (data.currentPage !== undefined && data.currentPage !== state.currentPage) {
       state.currentPage = data.currentPage;
       renderActivity();
@@ -838,8 +839,10 @@ async function setupFirebase() {
       applyAnswerToUI(state.currentPage, data.answers[state.currentPage]);
     }
     // Aktif öğrenci değişikliği
+    console.log('  → activeStudent çağrılıyor:', data.activeStudent);
     applyActiveStudent(data.activeStudent || null);
     // Etkinlik kilidi değişikliği
+    console.log('  → activityLocked çağrılıyor:', data.activityLocked);
     applyActivityLock(data.activityLocked || false);
   });
 }
