@@ -491,6 +491,41 @@
     z-index: 9999;
     overflow: hidden;
   }
+
+  /* === RENK HAVUZLARI === */
+  /* 1. Altın/Sarı yıldız */
+  .praise-text.color-gold {
+    background: linear-gradient(45deg, #fbbf24, #f59e0b, #fde047);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 20px rgba(251, 191, 36, 0.6));
+  }
+  /* 2. Mevcut marka mavi-pembe */
+  .praise-text.color-brand {
+    background: linear-gradient(45deg, #0075e5, #eb0bc4);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 20px rgba(235, 11, 196, 0.5));
+  }
+  /* 3. Zümrüt yeşil gradyan */
+  .praise-text.color-emerald {
+    background: linear-gradient(45deg, #10b981, #34d399, #6ee7b7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 20px rgba(16, 185, 129, 0.6));
+  }
+  /* 4. Parlak gümüş */
+  .praise-text.color-silver {
+    background: linear-gradient(45deg, #cbd5e1, #f1f5f9, #94a3b8, #e2e8f0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 20px rgba(148, 163, 184, 0.7));
+  }
+
   .praise-text {
     position: absolute;
     top: 50%;
@@ -499,15 +534,12 @@
     font-size: clamp(60px, 12vw, 180px);
     font-weight: 900;
     text-align: center;
-    background: linear-gradient(45deg, #0075e5, #eb0bc4);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
     text-shadow: 0 4px 30px rgba(255,255,255,0.5);
     font-family: 'Inter Tight', system-ui, sans-serif;
     letter-spacing: -0.04em;
     animation: praisePop 2.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     white-space: nowrap;
+    z-index: 2;
   }
   @keyframes praisePop {
     0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
@@ -516,6 +548,8 @@
     75% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
     100% { transform: translate(-50%, -50%) scale(0.8) rotate(0deg); opacity: 0; }
   }
+
+  /* === EFEKT 1: KONFETİ === */
   .confetti-piece {
     position: absolute;
     width: 12px;
@@ -534,9 +568,79 @@
     }
   }
 
+  /* === EFEKT 2: HAVAI FİŞEK === */
+  .firework-burst {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+  }
+  .firework-spark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    transform-origin: center;
+    animation: sparkBurst 1.2s ease-out forwards;
+  }
+  @keyframes sparkBurst {
+    0% {
+      transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--distance));
+      opacity: 0;
+    }
+  }
+  /* Birden fazla patlama (zincirleme) için yardımcı */
+  .firework-burst.delayed-1 { animation-delay: 0.3s; }
+  .firework-burst.delayed-2 { animation-delay: 0.6s; }
+  .firework-burst.delayed-3 { animation-delay: 0.9s; }
+
+  /* === EFEKT 3: PARILTI/PIRILTI === */
+  .sparkle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+    animation: sparkleSpin 1.5s ease-out forwards;
+  }
+  .sparkle::before, .sparkle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background: white;
+    border-radius: 2px;
+    box-shadow: 0 0 8px 2px currentColor;
+  }
+  .sparkle::before {
+    width: 100%;
+    height: 2px;
+    transform: translate(-50%, -50%);
+  }
+  .sparkle::after {
+    width: 2px;
+    height: 100%;
+    transform: translate(-50%, -50%);
+  }
+  @keyframes sparkleSpin {
+    0% { transform: scale(0) rotate(0deg); opacity: 0; }
+    30% { transform: scale(1) rotate(180deg); opacity: 1; }
+    70% { transform: scale(1) rotate(540deg); opacity: 1; }
+    100% { transform: scale(0) rotate(720deg); opacity: 0; }
+  }
+
   /* Öğretmenin övgü butonları (alt panelde) */
   .praise-buttons {
-    display: none; /* sadece öğretmen JS açar */
+    display: none;
     gap: 6px;
     padding: 0 6px;
     margin: 0 6px;
@@ -916,10 +1020,9 @@ document.getElementById('enter-btn').onclick = async () => {
   // Ders bilgisi
   document.getElementById('lesson-info').textContent = `Ders: ${state.room} • ${state.name}`;
 
-  // Öğrenci sayfa düğmesini gizle
+  // Öğrenci sayfa düğmelerini ve ilerleme çubuğunu gizle (footer'ın tamamı)
   if (state.role !== 'teacher') {
-    document.getElementById('prev-btn').style.display = 'none';
-    document.getElementById('next-btn').style.display = 'none';
+    document.querySelector('footer').style.display = 'none';
   }
 
   await setupFirebase();
@@ -1976,28 +2079,87 @@ function showPraise(text, emoji) {
   const overlay = document.createElement('div');
   overlay.className = 'praise-overlay';
 
+  // === RASTGELE RENK SEÇİMİ (4 havuz) ===
+  const colorPools = ['color-gold', 'color-brand', 'color-emerald', 'color-silver'];
+  const randomColor = colorPools[Math.floor(Math.random() * colorPools.length)];
+
+  // Konfeti/parıltı renk paletleri (her renk havuzuyla uyumlu)
+  const colorPalettes = {
+    'color-gold':    ['#fbbf24', '#f59e0b', '#fde047', '#fef3c7', '#facc15'],
+    'color-brand':   ['#0075e5', '#eb0bc4', '#8b5cf6', '#a855f7', '#3b82f6'],
+    'color-emerald': ['#10b981', '#34d399', '#6ee7b7', '#059669', '#a7f3d0'],
+    'color-silver':  ['#cbd5e1', '#f1f5f9', '#94a3b8', '#e2e8f0', '#ffffff']
+  };
+  const palette = colorPalettes[randomColor];
+
   // Büyük yazı
   const textEl = document.createElement('div');
-  textEl.className = 'praise-text';
+  textEl.className = `praise-text ${randomColor}`;
   textEl.textContent = `${emoji} ${text}`;
   overlay.appendChild(textEl);
 
-  // Konfeti parçaları (renkli)
-  const colors = ['#fbbf24', '#10b981', '#0075e5', '#eb0bc4', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'];
-  const shapes = ['50%', '0%']; // daire veya kare
+  // === RASTGELE EFEKT SEÇİMİ (3 efekt) ===
+  const effects = ['confetti', 'firework', 'sparkle'];
+  const randomEffect = effects[Math.floor(Math.random() * effects.length)];
+  console.log('🎨 Övgü:', randomColor, '+', randomEffect);
 
-  for (let i = 0; i < 80; i++) {
-    const piece = document.createElement('div');
-    piece.className = 'confetti-piece';
-    piece.style.left = Math.random() * 100 + '%';
-    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
-    piece.style.width = (8 + Math.random() * 10) + 'px';
-    piece.style.height = (8 + Math.random() * 10) + 'px';
-    piece.style.setProperty('--drift', (Math.random() * 200 - 100) + 'px');
-    piece.style.animationDuration = (2.5 + Math.random() * 1.5) + 's';
-    piece.style.animationDelay = (Math.random() * 0.3) + 's';
-    overlay.appendChild(piece);
+  if (randomEffect === 'confetti') {
+    // EFEKT 1: KONFETİ
+    const shapes = ['50%', '0%'];
+    for (let i = 0; i < 80; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.background = palette[Math.floor(Math.random() * palette.length)];
+      piece.style.borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
+      piece.style.width = (8 + Math.random() * 10) + 'px';
+      piece.style.height = (8 + Math.random() * 10) + 'px';
+      piece.style.setProperty('--drift', (Math.random() * 200 - 100) + 'px');
+      piece.style.animationDuration = (2.5 + Math.random() * 1.5) + 's';
+      piece.style.animationDelay = (Math.random() * 0.3) + 's';
+      overlay.appendChild(piece);
+    }
+  } else if (randomEffect === 'firework') {
+    // EFEKT 2: HAVAI FİŞEK (yazının arkasından zincirleme patlama)
+    const burstCount = 5; // 5 ayrı patlama
+    for (let b = 0; b < burstCount; b++) {
+      const burst = document.createElement('div');
+      burst.className = 'firework-burst';
+      // Yazının arkası civarında rastgele konum
+      burst.style.left = (35 + Math.random() * 30) + '%';
+      burst.style.top = (35 + Math.random() * 30) + '%';
+      burst.style.animationDelay = (b * 0.3) + 's';
+
+      // Her patlama 24 spark üretir
+      const sparkCount = 24;
+      for (let s = 0; s < sparkCount; s++) {
+        const spark = document.createElement('div');
+        spark.className = 'firework-spark';
+        const angle = (360 / sparkCount) * s + (Math.random() * 20 - 10);
+        const distance = 100 + Math.random() * 150;
+        spark.style.setProperty('--angle', angle + 'deg');
+        spark.style.setProperty('--distance', distance + 'px');
+        spark.style.background = palette[Math.floor(Math.random() * palette.length)];
+        spark.style.boxShadow = `0 0 8px 2px ${palette[Math.floor(Math.random() * palette.length)]}`;
+        spark.style.animationDelay = (b * 0.3) + 's';
+        burst.appendChild(spark);
+      }
+      overlay.appendChild(burst);
+    }
+  } else if (randomEffect === 'sparkle') {
+    // EFEKT 3: PIRILTI (ekrana yayılmış parıltılar)
+    for (let i = 0; i < 50; i++) {
+      const sparkle = document.createElement('div');
+      sparkle.className = 'sparkle';
+      sparkle.style.left = Math.random() * 100 + '%';
+      sparkle.style.top = Math.random() * 100 + '%';
+      sparkle.style.color = palette[Math.floor(Math.random() * palette.length)];
+      sparkle.style.width = (15 + Math.random() * 25) + 'px';
+      sparkle.style.height = sparkle.style.width;
+      sparkle.style.animationDelay = (Math.random() * 1.5) + 's';
+      sparkle.style.animationDuration = (1 + Math.random() * 1) + 's';
+      overlay.appendChild(sparkle);
+    }
   }
 
   document.body.appendChild(overlay);
