@@ -1537,8 +1537,8 @@ async function setupFirebase() {
     applyPraise(data.praise);
     // Beyaz tahta durumu (açık/kapalı)
     applyWhiteboardState(data.whiteboardOpen === true);
-    // Beyaz tahta çizim olayı
-    applyWhiteboardEvent(data.whiteboardEvent);
+    // Beyaz tahta çizim olayları (batch)
+    applyWhiteboardBatch(data.whiteboardBatch);
     // Yıldızlar
     applyStars(data.stars || {});
     // Haylazlık (sadece öğretmen görür)
@@ -2739,6 +2739,7 @@ function initWhiteboard() {
       const tool = btn.dataset.tool;
       if (tool === 'clear') {
         if (canUseWhiteboard()) {
+          wbDrawing = false; // Çizim seyir halindeyse durdur
           clearWhiteboard();
           pushWbHistory();
           broadcastWhiteboard({ type: 'clear' });
@@ -2912,6 +2913,8 @@ function wbPointerMove(e) {
 function wbPointerUp() {
   if (wbDrawing) {
     wbDrawing = false;
+    // Kuyrukta kalan son çizim noktalarını hemen gönder
+    flushWbEvents();
     // Çizim bitti, geçmişe kaydet
     pushWbHistory();
   }
@@ -3036,12 +3039,42 @@ async function toggleWhiteboard(open) {
   await update(dbRoomRef, { whiteboardOpen: open });
 }
 
-// Çizim verisini Firebase'e gönder
+// Çizim olaylarını biriktir, toplu gönder (gecikme önleme)
+let wbEventQueue = [];
+let wbFlushTimer = null;
+
 async function broadcastWhiteboard(data) {
   if (!dbRoomRef) return;
+  // Olayı kuyruğa ekle
+  wbEventQueue.push({ ...data, at: Date.now(), seq: wbSeqCounter++, by: state.name });
+
+  // clear/snapshot/text olayları ANINDA gitsin (kritik)
+  const urgent = ['clear', 'snapshot', 'text-new', 'text-update', 'text-lock', 'text-move'].includes(data.type);
+  if (urgent) {
+    flushWbEvents();
+    return;
+  }
+
+  // Çizgi/nokta olayları — kısa throttle ile toplu gönder
+  if (!wbFlushTimer) {
+    wbFlushTimer = setTimeout(flushWbEvents, 50); // 50ms'de bir topla gönder
+  }
+}
+
+let wbSeqCounter = 0;
+
+async function flushWbEvents() {
+  if (wbFlushTimer) { clearTimeout(wbFlushTimer); wbFlushTimer = null; }
+  if (wbEventQueue.length === 0) return;
+  const batch = wbEventQueue;
+  wbEventQueue = [];
   const { update } = window.fb;
-  // Her çizim olayına benzersiz zaman damgası
-  await update(dbRoomRef, { whiteboardEvent: { ...data, at: Date.now(), by: state.name } });
+  try {
+    // Tüm biriken olayları tek seferde gönder (batch)
+    await update(dbRoomRef, { whiteboardBatch: { events: batch, at: Date.now() } });
+  } catch (e) {
+    console.warn('Beyaz tahta gönderme hatası:', e.message);
+  }
 }
 
 // Firebase'den tahta durumu (açık/kapalı)
@@ -3073,12 +3106,20 @@ function applyWhiteboardState(isOpen) {
   }
 }
 
-// Firebase'den çizim olayı geldiğinde uygula
-let lastWbEventTime = 0;
+// Firebase'den gelen batch'i işle
+let lastWbBatchTime = 0;
+function applyWhiteboardBatch(batch) {
+  if (!batch || !batch.at) return;
+  if (batch.at <= lastWbBatchTime) return;
+  lastWbBatchTime = batch.at;
+  if (!batch.events) return;
+  // Batch içindeki tüm olayları sırayla uygula
+  batch.events.forEach(ev => applyWhiteboardEvent(ev));
+}
+
+// Tek bir çizim olayını uygula
 function applyWhiteboardEvent(ev) {
-  if (!ev || !ev.at) return;
-  if (ev.at <= lastWbEventTime) return;
-  lastWbEventTime = ev.at;
+  if (!ev) return;
   // Kendi gönderdiğim olayı tekrar çizme
   if (ev.by === state.name) return;
   if (!wbCtx) return;
@@ -3100,6 +3141,7 @@ function applyWhiteboardEvent(ev) {
     wbCtx.fill();
     wbCtx.restore();
   } else if (ev.type === 'clear') {
+    wbDrawing = false; // O an çiziyorsam durdur
     clearWhiteboard();
   } else if (ev.type === 'snapshot') {
     // Karşı taraf undo/redo yaptı → tüm canvas'ı güncelle
