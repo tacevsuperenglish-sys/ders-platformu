@@ -227,6 +227,161 @@
   body.activity-locked #activity-area:not(.unlocked-for-me) {
     pointer-events: none;
   }
+
+  /* ===== BEYAZ TAHTA ===== */
+  #whiteboard-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: none;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+  }
+  #whiteboard-overlay.open {
+    display: flex;
+    animation: wbPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes wbPop {
+    0% { transform: scale(0.85); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Sol araç paneli */
+  .wb-toolbar {
+    width: 72px;
+    background: linear-gradient(180deg, #1e1b4b, #4338ca);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .wb-tool {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .wb-tool:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
+  .wb-tool.active { background: white; color: #4338ca; }
+
+  .wb-divider { width: 40px; height: 1px; background: rgba(255,255,255,0.2); margin: 4px 0; flex-shrink: 0; }
+
+  /* Renk seçiciler */
+  .wb-color {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .wb-color:hover { transform: scale(1.15); }
+  .wb-color.active { border-color: white; box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
+
+  /* Kalınlık göstergesi */
+  .wb-thickness {
+    width: 48px;
+    height: 40px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .wb-thickness:hover { background: rgba(255,255,255,0.25); }
+  .wb-thickness.active { background: white; }
+  .wb-thickness .dot { background: #4338ca; border-radius: 50%; }
+  .wb-thickness.active .dot { background: #4338ca; }
+  .wb-thickness:not(.active) .dot { background: white; }
+
+  /* Çizim alanı */
+  .wb-canvas-area {
+    flex: 1;
+    position: relative;
+    background: #fdfdfd;
+    background-image:
+      linear-gradient(rgba(99, 102, 241, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+    overflow: hidden;
+  }
+  #wb-canvas { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+
+  /* Metin kutuları */
+  .wb-textbox {
+    position: absolute;
+    min-width: 60px;
+    min-height: 30px;
+    border: 2px dashed #6366f1;
+    background: rgba(255,255,255,0.8);
+    padding: 4px 8px;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e1b4b;
+    outline: none;
+    border-radius: 6px;
+    cursor: move;
+    resize: both;
+    overflow: auto;
+  }
+  .wb-textbox:focus { border-style: solid; }
+
+  /* Kapat butonu (sağ üst) */
+  .wb-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    border: none;
+    cursor: pointer;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s;
+  }
+  .wb-close:hover { background: #dc2626; transform: scale(1.05); }
+
+  /* Beyaz tahta butonu (alt panel) */
+  #whiteboard-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: none;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  #whiteboard-btn:hover { background: #e0e7ff; }
+  #whiteboard-btn.active { background: #4f46e5; color: white; }
+
   .cam-wrap video { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; }
   .cam-wrap.no-video video { display: none; }
 
@@ -684,10 +839,18 @@
     white-space: nowrap;
   }
   .praise-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-  .praise-btn.well { background: linear-gradient(135deg, #10b981, #059669); }
-  .praise-btn.awesome { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
-  .praise-btn.amazing { background: linear-gradient(135deg, #f59e0b, #d97706); }
-  .praise-btn.good { background: linear-gradient(135deg, #0075e5, #eb0bc4); }
+  .praise-btn.congrats {
+    background: linear-gradient(135deg, #0075e5, #8b5cf6, #eb0bc4, #f59e0b);
+    background-size: 300% 300%;
+    animation: congratsShimmer 4s ease infinite;
+    font-size: 14px;
+    padding: 0 20px;
+  }
+  @keyframes congratsShimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
 
   /* Öğrencinin kendi parmak butonu (alt panel) — sarı yanar */
   #raise-hand-btn-student.raised {
@@ -810,6 +973,47 @@
     <div class="absolute top-0 right-0 w-64 h-64 pointer-events-none opacity-30" style="background: radial-gradient(circle at top right, rgba(235, 11, 196, 0.15), transparent 70%);"></div>
     <div class="absolute bottom-0 left-0 w-64 h-64 pointer-events-none opacity-30" style="background: radial-gradient(circle at bottom left, rgba(0, 117, 229, 0.15), transparent 70%);"></div>
     <div id="activity-area" class="relative z-10 p-6 md:p-10"></div>
+
+    <!-- BEYAZ TAHTA OVERLAY -->
+    <div id="whiteboard-overlay">
+      <!-- Sol araç paneli -->
+      <div class="wb-toolbar">
+        <button class="wb-tool active" data-tool="pen" title="Kalem"><i class="fa-solid fa-pen"></i></button>
+        <button class="wb-tool" data-tool="eraser" title="Silgi"><i class="fa-solid fa-eraser"></i></button>
+        <button class="wb-tool" data-tool="text" title="Metin kutusu"><i class="fa-solid fa-font"></i></button>
+
+        <div class="wb-divider"></div>
+
+        <!-- Renkler -->
+        <div class="wb-color active" data-color="#1e1b4b" style="background:#1e1b4b;" title="Lacivert"></div>
+        <div class="wb-color" data-color="#ef4444" style="background:#ef4444;" title="Kırmızı"></div>
+        <div class="wb-color" data-color="#10b981" style="background:#10b981;" title="Yeşil"></div>
+        <div class="wb-color" data-color="#0075e5" style="background:#0075e5;" title="Mavi"></div>
+        <div class="wb-color" data-color="#eb0bc4" style="background:#eb0bc4;" title="Pembe"></div>
+        <div class="wb-color" data-color="#f59e0b" style="background:#f59e0b;" title="Turuncu"></div>
+
+        <div class="wb-divider"></div>
+
+        <!-- Kalınlık -->
+        <button class="wb-thickness" data-size="2" title="İnce"><span class="dot" style="width:4px;height:4px;"></span></button>
+        <button class="wb-thickness active" data-size="4" title="Orta"><span class="dot" style="width:8px;height:8px;"></span></button>
+        <button class="wb-thickness" data-size="8" title="Kalın"><span class="dot" style="width:14px;height:14px;"></span></button>
+
+        <div class="wb-divider"></div>
+
+        <!-- Temizle -->
+        <button class="wb-tool" data-tool="clear" title="Tümünü temizle" style="background:rgba(239,68,68,0.3);"><i class="fa-solid fa-trash"></i></button>
+      </div>
+
+      <!-- Çizim alanı -->
+      <div class="wb-canvas-area" id="wb-canvas-area">
+        <canvas id="wb-canvas"></canvas>
+        <!-- Metin kutuları buraya eklenir -->
+      </div>
+
+      <!-- Kapat (sadece öğretmen) -->
+      <button class="wb-close" id="wb-close" title="Beyaz tahtayı kapat"><i class="fa-solid fa-xmark"></i></button>
+    </div>
   </main>
 
   <!-- KAMERALAR (dinamik — 1 öğretmen + 1-3 öğrenci) -->
@@ -834,12 +1038,16 @@
       <i class="fa-solid fa-lock-open"></i>
     </button>
 
+    <!-- Beyaz tahta butonu - sadece öğretmen için JS açar -->
+    <button id="whiteboard-btn" title="Beyaz tahta">
+      <i class="fa-solid fa-chalkboard"></i>
+    </button>
+
     <!-- Övgü butonları - sadece öğretmen görür -->
     <div class="praise-buttons">
-      <button class="praise-btn well" data-praise="Well Done!" data-emoji="🌟">Well Done!</button>
-      <button class="praise-btn awesome" data-praise="Awesome!" data-emoji="🎉">Awesome!</button>
-      <button class="praise-btn amazing" data-praise="Amazing!" data-emoji="✨">Amazing!</button>
-      <button class="praise-btn good" data-praise="Good Job!" data-emoji="👏">Good Job!</button>
+      <button class="praise-btn congrats" id="congrats-btn">
+        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Congrats!
+      </button>
     </div>
     <button id="leave-btn" class="w-11 h-11 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition" title="Dersten Ayrıl">
       <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -1033,6 +1241,8 @@ document.getElementById('enter-btn').onclick = async () => {
     document.body.classList.add('is-teacher');
     // Öğretmenin kilit butonu görünsün
     document.getElementById('lock-btn').style.display = 'flex';
+    // Öğretmenin beyaz tahta butonu görünsün
+    document.getElementById('whiteboard-btn').style.display = 'flex';
   } else {
     badge.innerHTML = '<i class="fa-solid fa-user-graduate mr-1"></i> Öğrenci';
     badge.classList.add('tag-veli');
@@ -1051,6 +1261,7 @@ document.getElementById('enter-btn').onclick = async () => {
   await setupFirebase();
   await setupVideo();
   renderActivity();
+  initWhiteboard();
 };
 
 // ====================================================================
@@ -1155,6 +1366,10 @@ async function setupFirebase() {
     applyRaisedHands(data.raisedHands || {});
     // Övgü mesajı (konfeti animasyonu)
     applyPraise(data.praise);
+    // Beyaz tahta durumu (açık/kapalı)
+    applyWhiteboardState(data.whiteboardOpen === true);
+    // Beyaz tahta çizim olayı
+    applyWhiteboardEvent(data.whiteboardEvent);
   });
 }
 
@@ -2111,6 +2326,254 @@ function showError(msg) {
 document.body.classList.add('layout-a');
 
 // ====================================================================
+// BEYAZ TAHTA SİSTEMİ
+// ====================================================================
+let wbCanvas, wbCtx;
+let wbDrawing = false;
+let wbTool = 'pen';
+let wbColor = '#1e1b4b';
+let wbSize = 4;
+let wbLastX = 0, wbLastY = 0;
+let wbIsOpen = false;
+
+// Tahta açma/kapama (öğretmen kontrolünde, Firebase senkron)
+function initWhiteboard() {
+  wbCanvas = document.getElementById('wb-canvas');
+  if (!wbCanvas) return;
+  wbCtx = wbCanvas.getContext('2d');
+
+  // Canvas boyutunu alanına göre ayarla
+  resizeWhiteboardCanvas();
+  window.addEventListener('resize', () => {
+    if (wbIsOpen) resizeWhiteboardCanvas();
+  });
+
+  // === ARAÇLAR ===
+  document.querySelectorAll('.wb-tool').forEach(btn => {
+    btn.onclick = () => {
+      const tool = btn.dataset.tool;
+      if (tool === 'clear') {
+        if (canUseWhiteboard()) {
+          clearWhiteboard();
+          broadcastWhiteboard({ type: 'clear' });
+        }
+        return;
+      }
+      wbTool = tool;
+      document.querySelectorAll('.wb-tool').forEach(b => {
+        if (b.dataset.tool && b.dataset.tool !== 'clear') b.classList.remove('active');
+      });
+      btn.classList.add('active');
+    };
+  });
+
+  // === RENKLER ===
+  document.querySelectorAll('.wb-color').forEach(c => {
+    c.onclick = () => {
+      wbColor = c.dataset.color;
+      document.querySelectorAll('.wb-color').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      if (wbTool === 'eraser') { wbTool = 'pen'; document.querySelector('.wb-tool[data-tool="pen"]').classList.add('active'); document.querySelector('.wb-tool[data-tool="eraser"]').classList.remove('active'); }
+    };
+  });
+
+  // === KALINLIK ===
+  document.querySelectorAll('.wb-thickness').forEach(t => {
+    t.onclick = () => {
+      wbSize = parseInt(t.dataset.size);
+      document.querySelectorAll('.wb-thickness').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    };
+  });
+
+  // === ÇİZİM OLAYLARI ===
+  wbCanvas.addEventListener('pointerdown', wbPointerDown);
+  wbCanvas.addEventListener('pointermove', wbPointerMove);
+  wbCanvas.addEventListener('pointerup', wbPointerUp);
+  wbCanvas.addEventListener('pointerleave', wbPointerUp);
+
+  // === METİN KUTUSU (tıkla ekle) ===
+  document.getElementById('wb-canvas-area').addEventListener('click', (e) => {
+    if (wbTool !== 'text') return;
+    if (!canUseWhiteboard()) return;
+    if (e.target.classList.contains('wb-textbox')) return;
+    const rect = document.getElementById('wb-canvas-area').getBoundingClientRect();
+    addTextBox(e.clientX - rect.left, e.clientY - rect.top, '');
+  });
+
+  // === KAPAT (öğretmen) ===
+  document.getElementById('wb-close').onclick = () => {
+    if (state.role !== 'teacher') return;
+    toggleWhiteboard(false);
+  };
+}
+
+function resizeWhiteboardCanvas() {
+  const area = document.getElementById('wb-canvas-area');
+  if (!area || !wbCanvas) return;
+  // Mevcut çizimi koru
+  const saved = wbCanvas.toDataURL();
+  wbCanvas.width = area.clientWidth;
+  wbCanvas.height = area.clientHeight;
+  // Geri yükle
+  const img = new Image();
+  img.onload = () => wbCtx.drawImage(img, 0, 0);
+  img.src = saved;
+}
+
+// Bu kullanıcı tahtayı kullanabilir mi? (öğretmen VEYA aktif öğrenci VEYA kilit kapalı)
+function canUseWhiteboard() {
+  if (state.role === 'teacher') return true;
+  if (!activityLocked) return true; // kilit kapalıysa herkes
+  // kilit açıksa sadece aktif öğrenci
+  return currentActiveStudent && currentActiveStudent.name === state.name;
+}
+
+// Çizim — pointer down
+function wbPointerDown(e) {
+  if (wbTool === 'text') return;
+  if (!canUseWhiteboard()) return;
+  wbDrawing = true;
+  const rect = wbCanvas.getBoundingClientRect();
+  wbLastX = e.clientX - rect.left;
+  wbLastY = e.clientY - rect.top;
+}
+
+function wbPointerMove(e) {
+  if (!wbDrawing) return;
+  if (!canUseWhiteboard()) return;
+  const rect = wbCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  const drawColor = wbTool === 'eraser' ? '#fdfdfd' : wbColor;
+  const drawSize = wbTool === 'eraser' ? wbSize * 5 : wbSize;
+
+  drawLine(wbLastX, wbLastY, x, y, drawColor, drawSize);
+  // Firebase'e gönder (karşı taraf görsün)
+  broadcastWhiteboard({ type: 'line', x1: wbLastX, y1: wbLastY, x2: x, y2: y, color: drawColor, size: drawSize, w: wbCanvas.width, h: wbCanvas.height });
+
+  wbLastX = x;
+  wbLastY = y;
+}
+
+function wbPointerUp() {
+  wbDrawing = false;
+}
+
+function drawLine(x1, y1, x2, y2, color, size) {
+  wbCtx.beginPath();
+  wbCtx.moveTo(x1, y1);
+  wbCtx.lineTo(x2, y2);
+  wbCtx.strokeStyle = color;
+  wbCtx.lineWidth = size;
+  wbCtx.lineCap = 'round';
+  wbCtx.lineJoin = 'round';
+  wbCtx.stroke();
+}
+
+function clearWhiteboard() {
+  wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
+  // Metin kutularını da temizle
+  document.querySelectorAll('.wb-textbox').forEach(t => t.remove());
+}
+
+function addTextBox(x, y, initialText) {
+  const area = document.getElementById('wb-canvas-area');
+  const box = document.createElement('div');
+  box.className = 'wb-textbox';
+  box.contentEditable = canUseWhiteboard() ? 'true' : 'false';
+  box.style.left = x + 'px';
+  box.style.top = y + 'px';
+  box.style.color = wbColor;
+  box.textContent = initialText;
+  area.appendChild(box);
+  if (canUseWhiteboard()) {
+    setTimeout(() => box.focus(), 50);
+    // Yazdıkça senkron
+    box.addEventListener('input', () => {
+      broadcastWhiteboard({ type: 'text-update', id: box.dataset.id, text: box.textContent });
+    });
+  }
+  // Benzersiz ID
+  const id = 'tb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  box.dataset.id = id;
+  broadcastWhiteboard({ type: 'text-new', id, x, y, color: wbColor, text: initialText });
+  return box;
+}
+
+// Tahtayı aç/kapat — öğretmen tetikler, Firebase ile herkese yayılır
+async function toggleWhiteboard(open) {
+  if (!dbRoomRef) return;
+  const { update } = window.fb;
+  await update(dbRoomRef, { whiteboardOpen: open });
+}
+
+// Çizim verisini Firebase'e gönder
+async function broadcastWhiteboard(data) {
+  if (!dbRoomRef) return;
+  const { update } = window.fb;
+  // Her çizim olayına benzersiz zaman damgası
+  await update(dbRoomRef, { whiteboardEvent: { ...data, at: Date.now(), by: state.name } });
+}
+
+// Firebase'den tahta durumu (açık/kapalı)
+function applyWhiteboardState(isOpen) {
+  const overlay = document.getElementById('whiteboard-overlay');
+  const btn = document.getElementById('whiteboard-btn');
+  if (!overlay) return;
+
+  if (isOpen && !wbIsOpen) {
+    wbIsOpen = true;
+    overlay.classList.add('open');
+    if (btn) btn.classList.add('active');
+    // Kapat butonu sadece öğretmende
+    document.getElementById('wb-close').style.display = state.role === 'teacher' ? 'flex' : 'none';
+    setTimeout(resizeWhiteboardCanvas, 50);
+  } else if (!isOpen && wbIsOpen) {
+    wbIsOpen = false;
+    overlay.classList.remove('open');
+    if (btn) btn.classList.remove('active');
+  }
+}
+
+// Firebase'den çizim olayı geldiğinde uygula
+let lastWbEventTime = 0;
+function applyWhiteboardEvent(ev) {
+  if (!ev || !ev.at) return;
+  if (ev.at <= lastWbEventTime) return;
+  lastWbEventTime = ev.at;
+  // Kendi gönderdiğim olayı tekrar çizme
+  if (ev.by === state.name) return;
+  if (!wbCtx) return;
+
+  if (ev.type === 'line') {
+    // Koordinatları kendi canvas boyutuma ölçekle
+    const scaleX = wbCanvas.width / (ev.w || wbCanvas.width);
+    const scaleY = wbCanvas.height / (ev.h || wbCanvas.height);
+    drawLine(ev.x1 * scaleX, ev.y1 * scaleY, ev.x2 * scaleX, ev.y2 * scaleY, ev.color, ev.size);
+  } else if (ev.type === 'clear') {
+    clearWhiteboard();
+  } else if (ev.type === 'text-new') {
+    const area = document.getElementById('wb-canvas-area');
+    if (document.querySelector(`.wb-textbox[data-id="${ev.id}"]`)) return;
+    const box = document.createElement('div');
+    box.className = 'wb-textbox';
+    box.contentEditable = 'false';
+    box.dataset.id = ev.id;
+    box.style.left = ev.x + 'px';
+    box.style.top = ev.y + 'px';
+    box.style.color = ev.color;
+    box.textContent = ev.text || '';
+    area.appendChild(box);
+  } else if (ev.type === 'text-update') {
+    const box = document.querySelector(`.wb-textbox[data-id="${ev.id}"]`);
+    if (box) box.textContent = ev.text;
+  }
+}
+
+
+// ====================================================================
 // ÖVGÜ SİSTEMİ - Konfeti + büyük yazı (pedagojik reinforcement)
 // ====================================================================
 function showPraise(text, emoji) {
@@ -2227,18 +2690,24 @@ function showPraise(text, emoji) {
   setTimeout(() => overlay.remove(), 4000);
 }
 
-// Öğretmen butona basınca Firebase'e yaz (herkes alır)
-document.querySelectorAll('.praise-btn').forEach(btn => {
-  btn.onclick = async () => {
-    if (state.role !== 'teacher' || !dbRoomRef) return;
-    const text = btn.dataset.praise;
-    const emoji = btn.dataset.emoji;
-    const { update } = window.fb;
-    await update(dbRoomRef, {
-      praise: { text, emoji, at: Date.now() }
-    });
-  };
-});
+// Tebrik mesajı havuzu — her tıklamada rastgele biri seçilir
+const PRAISE_MESSAGES = [
+  { text: 'Well Done!', emoji: '🌟' },
+  { text: 'Awesome!', emoji: '🎉' },
+  { text: 'Amazing!', emoji: '✨' },
+  { text: 'Good Job!', emoji: '👏' },
+  { text: 'Congratulations!', emoji: '🏆' }
+];
+
+// Öğretmen Congrats! butonuna basınca — rastgele mesaj seç, Firebase'e yaz
+document.getElementById('congrats-btn').onclick = async () => {
+  if (state.role !== 'teacher' || !dbRoomRef) return;
+  const picked = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
+  const { update } = window.fb;
+  await update(dbRoomRef, {
+    praise: { text: picked.text, emoji: picked.emoji, at: Date.now() }
+  });
+};
 
 // Firebase'den övgü mesajı geldiğinde herkese göster
 let lastPraiseTime = 0;
@@ -2533,6 +3002,12 @@ document.getElementById('lock-btn').onclick = async () => {
   if (state.role !== 'teacher' || !dbRoomRef) return;
   const { update } = window.fb;
   await update(dbRoomRef, { activityLocked: !activityLocked });
+};
+
+// Öğretmen beyaz tahta butonuna bastı
+document.getElementById('whiteboard-btn').onclick = () => {
+  if (state.role !== 'teacher') return;
+  toggleWhiteboard(!wbIsOpen);
 };
 
 
