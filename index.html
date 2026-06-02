@@ -311,9 +311,8 @@
     flex-shrink: 0;
     transition: opacity 0.2s;
   }
-  /* Yetkisiz kullanıcı için araç paneli soluk + tıklanamaz */
+  /* Yetkisiz kullanıcı için araç paneli — aynı görünür, sadece tıklanamaz */
   .wb-toolbar.no-permission {
-    opacity: 0.4;
     pointer-events: none;
   }
   .wb-tool {
@@ -545,11 +544,11 @@
   /* Uçan yıldız v2 — ortada blop, sonra kutuya süzülür */
   .flying-star-v2 {
     position: fixed;
-    font-size: 80px;
+    font-size: 160px;
     z-index: 9998;
     pointer-events: none;
     transform: translate(-50%, -50%) scale(0);
-    animation: starBlopFly 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: starBlopFly 3.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     filter: drop-shadow(0 4px 12px rgba(251, 191, 36, 0.6));
   }
   @keyframes starBlopFly {
@@ -2625,7 +2624,7 @@ function applyStars(stars) {
       // Önce uçan yıldız (blop + süzülme), sonra rozet güncellenir
       flyStarToBox(entry.box);
       // Rozet sayısını süzülme bitince güncelle (zıplama efekti ile)
-      setTimeout(() => updateStarBadge(entry.box, count, true), 1400);
+      setTimeout(() => updateStarBadge(entry.box, count, true), 2900);
     } else {
       updateStarBadge(entry.box, count, false);
     }
@@ -2652,7 +2651,7 @@ function flyStarToBox(box) {
   star.style.setProperty('--dy', (targetY - startY) + 'px');
   document.body.appendChild(star);
 
-  setTimeout(() => star.remove(), 1600);
+  setTimeout(() => star.remove(), 3200);
 }
 
 // Sağ tık menüsü — Yıldız Ver
