@@ -327,6 +327,8 @@
   }
   .wb-tool:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
   .wb-tool.active { background: white; color: #4338ca; }
+  /* Tümünü sil butonu sadece öğretmende */
+  body:not(.is-teacher) .wb-tool[data-tool="clear"] { display: none; }
 
   .wb-divider { width: 40px; height: 1px; background: rgba(255,255,255,0.2); margin: 4px 0; flex-shrink: 0; }
 
@@ -389,8 +391,8 @@
     outline: none;
     border-radius: 6px;
     cursor: move;
-    resize: both;
-    overflow: auto;
+    overflow: visible;
+    white-space: nowrap;
   }
   .wb-textbox:focus { border-style: solid; }
 
@@ -1048,6 +1050,12 @@
         <button class="wb-thickness" data-size="2" title="İnce"><span class="dot" style="width:4px;height:4px;"></span></button>
         <button class="wb-thickness active" data-size="4" title="Orta"><span class="dot" style="width:8px;height:8px;"></span></button>
         <button class="wb-thickness" data-size="8" title="Kalın"><span class="dot" style="width:14px;height:14px;"></span></button>
+
+        <div class="wb-divider"></div>
+
+        <!-- Geri al / İleri al -->
+        <button class="wb-tool" data-tool="undo" title="Geri al"><i class="fa-solid fa-rotate-left"></i></button>
+        <button class="wb-tool" data-tool="redo" title="İleri al"><i class="fa-solid fa-rotate-right"></i></button>
 
         <div class="wb-divider"></div>
 
@@ -2387,6 +2395,54 @@ let wbSize = 4;
 let wbLastX = 0, wbLastY = 0;
 let wbIsOpen = false;
 
+// Undo/Redo geçmişi (canvas snapshot'ları)
+let wbHistory = [];
+let wbHistoryIndex = -1;
+const WB_HISTORY_MAX = 30;
+
+// Mevcut canvas durumunu geçmişe ekle
+function pushWbHistory() {
+  if (!wbCanvas) return;
+  // İleri'deki geçmişi sil (yeni çizim yapıldıysa redo geçersiz)
+  wbHistory = wbHistory.slice(0, wbHistoryIndex + 1);
+  wbHistory.push(wbCanvas.toDataURL());
+  if (wbHistory.length > WB_HISTORY_MAX) wbHistory.shift();
+  wbHistoryIndex = wbHistory.length - 1;
+}
+
+// Belirli bir snapshot'ı canvas'a yükle ve karşıya yayınla
+function restoreWbSnapshot(dataURL, broadcast) {
+  const img = new Image();
+  img.onload = () => {
+    wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
+    wbCtx.drawImage(img, 0, 0, wbCanvas.width, wbCanvas.height);
+  };
+  img.src = dataURL;
+  if (broadcast) {
+    broadcastWhiteboard({ type: 'snapshot', data: dataURL, w: wbCanvas.width, h: wbCanvas.height });
+  }
+}
+
+function wbUndo() {
+  if (wbHistoryIndex <= 0) {
+    // İlk duruma (boş) dön
+    if (wbHistoryIndex === 0) {
+      wbHistoryIndex = -1;
+      wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
+      broadcastWhiteboard({ type: 'clear' });
+    }
+    return;
+  }
+  wbHistoryIndex--;
+  restoreWbSnapshot(wbHistory[wbHistoryIndex], true);
+}
+
+function wbRedo() {
+  if (wbHistoryIndex >= wbHistory.length - 1) return;
+  wbHistoryIndex++;
+  restoreWbSnapshot(wbHistory[wbHistoryIndex], true);
+}
+
 // Tahta açma/kapama (öğretmen kontrolünde, Firebase senkron)
 function initWhiteboard() {
   wbCanvas = document.getElementById('wb-canvas');
@@ -2406,13 +2462,23 @@ function initWhiteboard() {
       if (tool === 'clear') {
         if (canUseWhiteboard()) {
           clearWhiteboard();
+          pushWbHistory();
           broadcastWhiteboard({ type: 'clear' });
         }
         return;
       }
+      if (tool === 'undo') {
+        if (canUseWhiteboard()) wbUndo();
+        return;
+      }
+      if (tool === 'redo') {
+        if (canUseWhiteboard()) wbRedo();
+        return;
+      }
+      // pen, eraser, text — araç seçimi
       wbTool = tool;
       document.querySelectorAll('.wb-tool').forEach(b => {
-        if (b.dataset.tool && b.dataset.tool !== 'clear') b.classList.remove('active');
+        if (['pen','eraser','text'].includes(b.dataset.tool)) b.classList.remove('active');
       });
       btn.classList.add('active');
     };
@@ -2515,6 +2581,16 @@ function wbPointerDown(e) {
   const rect = wbCanvas.getBoundingClientRect();
   wbLastX = e.clientX - rect.left;
   wbLastY = e.clientY - rect.top;
+
+  // TEK TIK = NOKTA çiz (hareket etmeden de iz bıraksın)
+  const drawColor = wbTool === 'eraser' ? '#fdfdfd' : wbColor;
+  const drawSize = wbTool === 'eraser' ? wbSize * 5 : wbSize;
+  wbCtx.beginPath();
+  wbCtx.arc(wbLastX, wbLastY, drawSize / 2, 0, Math.PI * 2);
+  wbCtx.fillStyle = drawColor;
+  wbCtx.fill();
+  // Karşı tarafa da nokta gönder
+  broadcastWhiteboard({ type: 'dot', x: wbLastX, y: wbLastY, color: drawColor, size: drawSize, w: wbCanvas.width, h: wbCanvas.height });
 }
 
 function wbPointerMove(e) {
@@ -2536,7 +2612,11 @@ function wbPointerMove(e) {
 }
 
 function wbPointerUp() {
-  wbDrawing = false;
+  if (wbDrawing) {
+    wbDrawing = false;
+    // Çizim bitti, geçmişe kaydet
+    pushWbHistory();
+  }
 }
 
 function drawLine(x1, y1, x2, y2, color, size) {
@@ -2669,7 +2749,11 @@ function applyWhiteboardState(isOpen) {
     overlay.classList.add('open');
     if (btn) btn.classList.add('active');
     document.getElementById('wb-close').style.display = state.role === 'teacher' ? 'flex' : 'none';
-    setTimeout(resizeWhiteboardCanvas, 50);
+    setTimeout(() => {
+      resizeWhiteboardCanvas();
+      // Başlangıç (boş) durumu geçmişe ekle
+      if (wbHistory.length === 0) pushWbHistory();
+    }, 50);
   } else if (!isOpen && wbIsOpen) {
     wbIsOpen = false;
     if (btn) btn.classList.remove('active');
@@ -2697,8 +2781,24 @@ function applyWhiteboardEvent(ev) {
     const scaleX = wbCanvas.width / (ev.w || wbCanvas.width);
     const scaleY = wbCanvas.height / (ev.h || wbCanvas.height);
     drawLine(ev.x1 * scaleX, ev.y1 * scaleY, ev.x2 * scaleX, ev.y2 * scaleY, ev.color, ev.size);
+  } else if (ev.type === 'dot') {
+    // Tek tık noktası
+    const scaleX = wbCanvas.width / (ev.w || wbCanvas.width);
+    const scaleY = wbCanvas.height / (ev.h || wbCanvas.height);
+    wbCtx.beginPath();
+    wbCtx.arc(ev.x * scaleX, ev.y * scaleY, ev.size / 2, 0, Math.PI * 2);
+    wbCtx.fillStyle = ev.color;
+    wbCtx.fill();
   } else if (ev.type === 'clear') {
     clearWhiteboard();
+  } else if (ev.type === 'snapshot') {
+    // Karşı taraf undo/redo yaptı → tüm canvas'ı güncelle
+    const img = new Image();
+    img.onload = () => {
+      wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
+      wbCtx.drawImage(img, 0, 0, wbCanvas.width, wbCanvas.height);
+    };
+    img.src = ev.data;
   } else if (ev.type === 'text-new') {
     const area = document.getElementById('wb-canvas-area');
     if (document.querySelector(`.wb-textbox-wrapper[data-id="${ev.id}"]`)) return;
@@ -2716,6 +2816,8 @@ function applyWhiteboardEvent(ev) {
     box.textContent = ev.text || '';
     wrapper.appendChild(box);
     area.appendChild(wrapper);
+    // Karşı taraftaki kutu da taşınabilir olmalı (yetkisi olan herkes)
+    makeTextDraggable(wrapper, box);
   } else if (ev.type === 'text-update') {
     const box = document.querySelector(`.wb-textbox[data-id="${ev.id}"]`);
     if (box) box.textContent = ev.text;
