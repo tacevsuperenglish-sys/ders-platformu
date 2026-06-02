@@ -243,9 +243,59 @@
     display: flex;
     animation: wbPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
+  #whiteboard-overlay.closing {
+    display: flex;
+    animation: wbClose 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
   @keyframes wbPop {
     0% { transform: scale(0.85); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes wbClose {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.85); opacity: 0; }
+  }
+
+  /* Kalem/silgi önizleme çemberi */
+  #wb-cursor-preview {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(67, 56, 202, 0.6);
+    background: rgba(67, 56, 202, 0.1);
+    pointer-events: none;
+    z-index: 6;
+    display: none;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Metin kutusu OK butonu */
+  .wb-textbox-ok {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #10b981;
+    color: white;
+    border: 2px solid white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    z-index: 10;
+  }
+  .wb-textbox-ok:hover { background: #059669; transform: scale(1.1); }
+  .wb-textbox-wrapper {
+    position: absolute;
+    z-index: 5;
+  }
+  .wb-textbox.locked-text {
+    cursor: move;
+    resize: none;
+    border-style: solid;
   }
 
   /* Sol araç paneli */
@@ -887,7 +937,7 @@
     <!-- Header -->
     <div class="hero-gradient text-white p-6 text-center">
       <div class="mx-auto mb-3 flex items-center justify-center">
-        <img src="/0_TACEV_SUPER_ENGLISH_LOGO.png" alt="TACEV Super English" class="h-20 w-auto" style="filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));">
+        <img src="/fun_logo.png" alt="TACEV Super English" class="h-20 w-auto" style="filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));">
       </div>
       <h1 class="text-2xl font-black mb-1">TACEV Super English</h1>
       <p class="text-indigo-200 text-sm">Canlı Ders Platformu</p>
@@ -949,7 +999,7 @@
   <header class="bg-white border border-gray-200 rounded-2xl shadow-sm flex items-center justify-between px-5 py-3" style="grid-area: header;">
     <div class="flex items-center gap-3">
       <div class="h-10 flex items-center justify-center">
-        <img src="/0_TACEV_SUPER_ENGLISH_LOGO.png" alt="TACEV Super English" class="h-10 w-auto">
+        <img src="/fun_logo.png" alt="TACEV Super English" class="h-10 w-auto">
       </div>
       <div>
         <h1 class="font-black text-indigo-900 text-base leading-tight">TACEV Super English</h1>
@@ -1008,6 +1058,7 @@
       <!-- Çizim alanı -->
       <div class="wb-canvas-area" id="wb-canvas-area">
         <canvas id="wb-canvas"></canvas>
+        <div id="wb-cursor-preview"></div>
         <!-- Metin kutuları buraya eklenir -->
       </div>
 
@@ -2392,6 +2443,33 @@ function initWhiteboard() {
   wbCanvas.addEventListener('pointerup', wbPointerUp);
   wbCanvas.addEventListener('pointerleave', wbPointerUp);
 
+  // === ÖNİZLEME ÇEMBERİ (kalem/silgi boyutu) ===
+  const preview = document.getElementById('wb-cursor-preview');
+  wbCanvas.addEventListener('pointermove', (e) => {
+    if (wbTool === 'text' || !canUseWhiteboard()) {
+      preview.style.display = 'none';
+      return;
+    }
+    const rect = wbCanvas.getBoundingClientRect();
+    const size = wbTool === 'eraser' ? wbSize * 5 : wbSize;
+    preview.style.display = 'block';
+    preview.style.left = (e.clientX - rect.left) + 'px';
+    preview.style.top = (e.clientY - rect.top) + 'px';
+    preview.style.width = size + 'px';
+    preview.style.height = size + 'px';
+    // Silgi farklı renkte
+    if (wbTool === 'eraser') {
+      preview.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+      preview.style.background = 'rgba(239, 68, 68, 0.1)';
+    } else {
+      preview.style.borderColor = wbColor;
+      preview.style.background = wbColor + '22';
+    }
+  });
+  wbCanvas.addEventListener('pointerleave', () => {
+    preview.style.display = 'none';
+  });
+
   // === METİN KUTUSU (tıkla ekle) ===
   document.getElementById('wb-canvas-area').addEventListener('click', (e) => {
     if (wbTool !== 'text') return;
@@ -2474,32 +2552,94 @@ function drawLine(x1, y1, x2, y2, color, size) {
 
 function clearWhiteboard() {
   wbCtx.clearRect(0, 0, wbCanvas.width, wbCanvas.height);
-  // Metin kutularını da temizle
+  // Metin kutularını ve sarmalayıcıları temizle
+  document.querySelectorAll('.wb-textbox-wrapper').forEach(t => t.remove());
   document.querySelectorAll('.wb-textbox').forEach(t => t.remove());
 }
 
 function addTextBox(x, y, initialText) {
+  if (!canUseWhiteboard()) return; // yetkisi yoksa hiç ekleme
+
   const area = document.getElementById('wb-canvas-area');
+  const id = 'tb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+
+  // Sarmalayıcı (kutu + OK butonu)
+  const wrapper = document.createElement('div');
+  wrapper.className = 'wb-textbox-wrapper';
+  wrapper.style.left = x + 'px';
+  wrapper.style.top = y + 'px';
+  wrapper.dataset.id = id;
+
   const box = document.createElement('div');
   box.className = 'wb-textbox';
-  box.contentEditable = canUseWhiteboard() ? 'true' : 'false';
-  box.style.left = x + 'px';
-  box.style.top = y + 'px';
+  box.contentEditable = 'true';
   box.style.color = wbColor;
+  box.style.position = 'relative';
+  box.style.left = '0';
+  box.style.top = '0';
   box.textContent = initialText;
-  area.appendChild(box);
-  if (canUseWhiteboard()) {
-    setTimeout(() => box.focus(), 50);
-    // Yazdıkça senkron
-    box.addEventListener('input', () => {
-      broadcastWhiteboard({ type: 'text-update', id: box.dataset.id, text: box.textContent });
-    });
-  }
-  // Benzersiz ID
-  const id = 'tb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
   box.dataset.id = id;
+
+  // OK butonu (yeşil, kutuyu kapatır → sadece taşınabilir olur)
+  const okBtn = document.createElement('button');
+  okBtn.className = 'wb-textbox-ok';
+  okBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+  okBtn.title = 'Tamam (yazıyı kilitle)';
+  okBtn.onclick = (e) => {
+    e.stopPropagation();
+    lockTextBox(wrapper, box);
+    broadcastWhiteboard({ type: 'text-lock', id });
+  };
+
+  wrapper.appendChild(box);
+  wrapper.appendChild(okBtn);
+  area.appendChild(wrapper);
+
+  setTimeout(() => box.focus(), 50);
+  box.addEventListener('input', () => {
+    broadcastWhiteboard({ type: 'text-update', id, text: box.textContent });
+  });
+
   broadcastWhiteboard({ type: 'text-new', id, x, y, color: wbColor, text: initialText });
   return box;
+}
+
+// OK'a basınca: yazma kapanır, sadece sürüklenebilir olur
+function lockTextBox(wrapper, box) {
+  box.contentEditable = 'false';
+  box.classList.add('locked-text');
+  // OK butonunu kaldır
+  const okBtn = wrapper.querySelector('.wb-textbox-ok');
+  if (okBtn) okBtn.remove();
+  // Sürükleme ekle
+  makeTextDraggable(wrapper, box);
+}
+
+// Metin kutusunu sürüklenebilir yap
+function makeTextDraggable(wrapper, box) {
+  let dragging = false, offX = 0, offY = 0;
+  box.addEventListener('pointerdown', (e) => {
+    if (box.contentEditable === 'true') return; // yazma modundaysa sürükleme yok
+    if (!canUseWhiteboard()) return;
+    dragging = true;
+    const wrect = wrapper.getBoundingClientRect();
+    offX = e.clientX - wrect.left;
+    offY = e.clientY - wrect.top;
+    box.setPointerCapture(e.pointerId);
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const area = document.getElementById('wb-canvas-area');
+    const arect = area.getBoundingClientRect();
+    const nx = e.clientX - arect.left - offX;
+    const ny = e.clientY - arect.top - offY;
+    wrapper.style.left = nx + 'px';
+    wrapper.style.top = ny + 'px';
+    broadcastWhiteboard({ type: 'text-move', id: wrapper.dataset.id, x: nx, y: ny });
+  });
+  box.addEventListener('pointerup', (e) => {
+    dragging = false;
+  });
 }
 
 // Tahtayı aç/kapat — öğretmen tetikler, Firebase ile herkese yayılır
@@ -2525,15 +2665,20 @@ function applyWhiteboardState(isOpen) {
 
   if (isOpen && !wbIsOpen) {
     wbIsOpen = true;
+    overlay.classList.remove('closing');
     overlay.classList.add('open');
     if (btn) btn.classList.add('active');
-    // Kapat butonu sadece öğretmende
     document.getElementById('wb-close').style.display = state.role === 'teacher' ? 'flex' : 'none';
     setTimeout(resizeWhiteboardCanvas, 50);
   } else if (!isOpen && wbIsOpen) {
     wbIsOpen = false;
-    overlay.classList.remove('open');
     if (btn) btn.classList.remove('active');
+    // Tatlıca kapanma animasyonu
+    overlay.classList.remove('open');
+    overlay.classList.add('closing');
+    setTimeout(() => {
+      overlay.classList.remove('closing');
+    }, 300);
   }
 }
 
@@ -2556,19 +2701,38 @@ function applyWhiteboardEvent(ev) {
     clearWhiteboard();
   } else if (ev.type === 'text-new') {
     const area = document.getElementById('wb-canvas-area');
-    if (document.querySelector(`.wb-textbox[data-id="${ev.id}"]`)) return;
+    if (document.querySelector(`.wb-textbox-wrapper[data-id="${ev.id}"]`)) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'wb-textbox-wrapper';
+    wrapper.style.left = ev.x + 'px';
+    wrapper.style.top = ev.y + 'px';
+    wrapper.dataset.id = ev.id;
     const box = document.createElement('div');
     box.className = 'wb-textbox';
     box.contentEditable = 'false';
     box.dataset.id = ev.id;
-    box.style.left = ev.x + 'px';
-    box.style.top = ev.y + 'px';
     box.style.color = ev.color;
+    box.style.position = 'relative';
     box.textContent = ev.text || '';
-    area.appendChild(box);
+    wrapper.appendChild(box);
+    area.appendChild(wrapper);
   } else if (ev.type === 'text-update') {
     const box = document.querySelector(`.wb-textbox[data-id="${ev.id}"]`);
     if (box) box.textContent = ev.text;
+  } else if (ev.type === 'text-lock') {
+    const wrapper = document.querySelector(`.wb-textbox-wrapper[data-id="${ev.id}"]`);
+    if (wrapper) {
+      const box = wrapper.querySelector('.wb-textbox');
+      const okBtn = wrapper.querySelector('.wb-textbox-ok');
+      if (okBtn) okBtn.remove();
+      if (box) box.classList.add('locked-text');
+    }
+  } else if (ev.type === 'text-move') {
+    const wrapper = document.querySelector(`.wb-textbox-wrapper[data-id="${ev.id}"]`);
+    if (wrapper) {
+      wrapper.style.left = ev.x + 'px';
+      wrapper.style.top = ev.y + 'px';
+    }
   }
 }
 
