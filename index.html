@@ -491,6 +491,72 @@
   .cam-wrap.no-video .cam-status-icon.cam-off-icon { display: flex; }
   .cam-wrap.mic-muted .cam-status-icon.mic-off-icon { display: flex; }
 
+  /* ===== YILDIZ ROZETİ (kamera sağ üst) ===== */
+  .cam-star-badge {
+    position: absolute;
+    bottom: 42px;
+    left: 10px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 800;
+    display: none;
+    align-items: center;
+    gap: 3px;
+    z-index: 5;
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.5);
+  }
+  .cam-star-badge.has-stars { display: flex; }
+  .cam-star-badge .star-icon { font-size: 11px; }
+  /* Yeni yıldız gelince zıplama */
+  @keyframes starBump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.4) rotate(-8deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  .cam-star-badge.bump { animation: starBump 0.5s ease-out; }
+
+  /* Haylazlık göstergesi (sadece öğretmen ekranında) */
+  .cam-mischief-badge {
+    position: absolute;
+    bottom: 42px;
+    right: 10px;
+    background: rgba(220, 38, 38, 0.92);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 5;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
+  }
+
+
+  /* Uçan yıldız (verilince ekranda süzülen) */
+  .flying-star {
+    position: fixed;
+    font-size: 40px;
+    z-index: 9998;
+    pointer-events: none;
+    animation: flyStar 1s ease-out forwards;
+  }
+  @keyframes flyStar {
+    0% { transform: scale(0) rotate(0deg); opacity: 0; }
+    30% { transform: scale(1.5) rotate(180deg); opacity: 1; }
+    100% { transform: scale(0.8) rotate(360deg); opacity: 0; }
+  }
+
+  /* Sağ tık menüsüne yıldız ver seçeneği zaten context-menu var, ona ekleyeceğiz */
+  .context-menu-item.star-give { color: #f59e0b; }
+  .context-menu-item.star-give:hover { background: #fffbeb; }
+  .context-menu-item.mischief-give { color: #dc2626; }
+  .context-menu-item.mischief-give:hover { background: #fef2f2; }
+
   /* Eski cam-noVideoIcon — geriye dönük uyumluluk için boş bırak */
   .cam-noVideoIcon { display: none !important; }
 
@@ -1138,6 +1204,14 @@
 <!-- ÖĞRETMEN SAĞ TIK MENÜSÜ -->
 <div id="teacher-context-menu" class="context-menu" style="display:none;">
   <div class="context-menu-header" id="ctx-student-name">Öğrenci</div>
+  <div class="context-menu-item star-give" id="ctx-give-star">
+    <i class="fa-solid fa-star"></i>
+    <span>Yıldız Ver ⭐</span>
+  </div>
+  <div class="context-menu-item mischief-give" id="ctx-give-mischief">
+    <i class="fa-solid fa-face-frown"></i>
+    <span>Haylazlık Kaydet 😟</span>
+  </div>
   <div class="context-menu-item" id="ctx-toggle-mic">
     <i class="fa-solid fa-microphone"></i>
     <span id="ctx-mic-label">Mikrofonunu kapat</span>
@@ -1145,6 +1219,27 @@
   <div class="context-menu-item" id="ctx-toggle-cam">
     <i class="fa-solid fa-video"></i>
     <span id="ctx-cam-label">Kamerasını kapat</span>
+  </div>
+</div>
+
+<!-- HAYLAZLIK KAYIT PENCERESİ (sadece öğretmen) -->
+<div id="mischief-modal" style="display:none; position:fixed; inset:0; z-index:1001; background:rgba(30,27,75,0.4); align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:16px; padding:24px; width:90%; max-width:380px; box-shadow:0 20px 48px rgba(0,0,0,0.25);">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+      <div style="width:40px; height:40px; border-radius:10px; background:#fef2f2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:18px;">
+        <i class="fa-solid fa-face-frown"></i>
+      </div>
+      <div>
+        <div style="font-weight:800; color:#1e1b4b; font-size:15px;">Haylazlık Kaydı</div>
+        <div style="font-size:12px; color:#6b7280;" id="mischief-student-name">Öğrenci</div>
+      </div>
+    </div>
+    <label style="display:block; font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Açıklama (isteğe bağlı)</label>
+    <textarea id="mischief-note" placeholder="Ne oldu? (boş bırakabilirsiniz)" style="width:100%; min-height:90px; border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:14px; outline:none; resize:vertical; font-family:inherit;"></textarea>
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button id="mischief-cancel" style="flex:1; padding:10px; border-radius:10px; border:1px solid #e5e7eb; background:white; color:#6b7280; font-weight:700; cursor:pointer;">İptal</button>
+      <button id="mischief-save" style="flex:1; padding:10px; border-radius:10px; border:none; background:#dc2626; color:white; font-weight:700; cursor:pointer;">Kaydet</button>
+    </div>
   </div>
 </div>
 
@@ -1429,6 +1524,10 @@ async function setupFirebase() {
     applyWhiteboardState(data.whiteboardOpen === true);
     // Beyaz tahta çizim olayı
     applyWhiteboardEvent(data.whiteboardEvent);
+    // Yıldızlar
+    applyStars(data.stars || {});
+    // Haylazlık (sadece öğretmen görür)
+    applyMischief(data.mischief || {});
   });
 }
 
@@ -1819,6 +1918,17 @@ function createCameraBox(identity, role, name) {
     <div class="cam-status-icon cam-off-icon" title="Kamera kapalı"><i class="fa-solid fa-video-slash"></i></div>
   `;
   box.appendChild(indicators);
+
+  // Yıldız rozeti (sadece öğrenci kutularında)
+  if (role === 'student') {
+    const starBadge = document.createElement('div');
+    starBadge.className = 'cam-star-badge';
+    starBadge.innerHTML = '<i class="fa-solid fa-star star-icon"></i> <span class="star-count">0</span>';
+    box.appendChild(starBadge);
+    // Mevcut yıldız sayısını uygula
+    const count = (studentStars && studentStars[name]) || 0;
+    updateStarBadge(box, count, false);
+  }
 
   // Alt isim etiketi
   const label = document.createElement('span');
@@ -2383,6 +2493,160 @@ function showError(msg) {
 
 // Sayfa açılınca layout A class'ını body'e ekle
 document.body.classList.add('layout-a');
+
+// ====================================================================
+// HAYLAZLIK SKORU (sadece öğretmen görür, kayıt için)
+// ====================================================================
+let mischiefTargetStudent = null;
+
+// Sağ tık menüsü — Haylazlık Kaydet
+document.getElementById('ctx-give-mischief').onclick = () => {
+  if (!ctxMenuStudentName) return;
+  mischiefTargetStudent = ctxMenuStudentName;
+  closeTeacherContextMenu();
+  // Modal aç
+  document.getElementById('mischief-student-name').textContent = mischiefTargetStudent;
+  document.getElementById('mischief-note').value = '';
+  document.getElementById('mischief-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('mischief-note').focus(), 100);
+};
+
+// İptal
+document.getElementById('mischief-cancel').onclick = () => {
+  document.getElementById('mischief-modal').style.display = 'none';
+  mischiefTargetStudent = null;
+};
+
+// Kaydet
+document.getElementById('mischief-save').onclick = async () => {
+  if (!mischiefTargetStudent || state.role !== 'teacher' || !dbRoomRef) return;
+  const note = document.getElementById('mischief-note').value.trim();
+  const { update, ref, get } = window.fb;
+
+  // Mevcut haylazlık verisini oku
+  const studentKey = mischiefTargetStudent;
+  const current = (mischiefData[studentKey]) || { count: 0, records: [] };
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const newRecord = {
+    note: note || '(açıklama yok)',
+    at: Date.now(),
+    date: dateStr,
+    room: state.room,
+    page: state.currentPage + 1
+  };
+  const updated = {
+    count: (current.count || 0) + 1,
+    records: [...(current.records || []), newRecord]
+  };
+
+  await update(dbRoomRef, { [`mischief/${studentKey}`]: updated });
+  console.log('😟 Haylazlık kaydedildi:', studentKey, '→', updated.count);
+
+  document.getElementById('mischief-modal').style.display = 'none';
+  mischiefTargetStudent = null;
+
+  // Öğretmene küçük onay
+  showError('Haylazlık kaydedildi: ' + studentKey + ' (toplam ' + updated.count + ')');
+};
+
+// Firebase'den haylazlık verisi (sadece öğretmen kullanır)
+let mischiefData = {};
+function applyMischief(data) {
+  mischiefData = data || {};
+  // Sadece öğretmen kutuda göstergesi görür
+  if (state.role !== 'teacher') return;
+  participantBoxes.forEach((entry) => {
+    if (entry.role !== 'student') return;
+    const info = mischiefData[entry.name];
+    const count = info ? (info.count || 0) : 0;
+    updateMischiefBadge(entry.box, count);
+  });
+}
+
+// Haylazlık göstergesi (sadece öğretmenin ekranında, küçük kırmızı sayaç)
+function updateMischiefBadge(box, count) {
+  let badge = box.querySelector('.cam-mischief-badge');
+  if (count <= 0) {
+    if (badge) badge.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'cam-mischief-badge';
+    box.appendChild(badge);
+  }
+  badge.innerHTML = `<i class="fa-solid fa-face-frown"></i> ${count}`;
+}
+
+
+// ====================================================================
+// YILDIZ SİSTEMİ (çaba ödüllü, bireysel, ders boyunca birikir)
+// ====================================================================
+let studentStars = {}; // { öğrenciAdı: yıldızSayısı }
+
+// Yıldız rozetini güncelle
+function updateStarBadge(box, count, animate) {
+  if (!box) return;
+  const badge = box.querySelector('.cam-star-badge');
+  if (!badge) return;
+  const countSpan = badge.querySelector('.star-count');
+  if (countSpan) countSpan.textContent = count;
+  badge.classList.toggle('has-stars', count > 0);
+  if (animate && count > 0) {
+    badge.classList.remove('bump');
+    void badge.offsetWidth; // reflow (animasyonu yeniden tetikle)
+    badge.classList.add('bump');
+  }
+}
+
+// Öğretmen bir öğrenciye yıldız verir (Firebase'e yazar)
+async function giveStarToStudent(name) {
+  if (state.role !== 'teacher' || !dbRoomRef) return;
+  const current = studentStars[name] || 0;
+  const { update } = window.fb;
+  await update(dbRoomRef, { [`stars/${name}`]: current + 1 });
+  console.log('⭐ Yıldız verildi:', name, '→', current + 1);
+}
+
+// Firebase'den yıldız durumunu uygula (herkes görür)
+function applyStars(stars) {
+  const prev = { ...studentStars };
+  studentStars = stars || {};
+
+  participantBoxes.forEach((entry) => {
+    if (entry.role !== 'student') return;
+    const count = studentStars[entry.name] || 0;
+    const prevCount = prev[entry.name] || 0;
+    const increased = count > prevCount;
+    updateStarBadge(entry.box, count, increased);
+    // Yıldız arttıysa uçan yıldız animasyonu
+    if (increased) {
+      flyStarToBox(entry.box);
+    }
+  });
+}
+
+// Uçan yıldız animasyonu (kutuya doğru)
+function flyStarToBox(box) {
+  const rect = box.getBoundingClientRect();
+  const star = document.createElement('div');
+  star.className = 'flying-star';
+  star.textContent = '⭐';
+  // Ekranın ortasından başla, kutuya doğru
+  star.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+  star.style.top = (rect.top + rect.height / 2 - 20) + 'px';
+  document.body.appendChild(star);
+  setTimeout(() => star.remove(), 1000);
+}
+
+// Sağ tık menüsü — Yıldız Ver
+document.getElementById('ctx-give-star').onclick = () => {
+  if (!ctxMenuStudentName) return;
+  giveStarToStudent(ctxMenuStudentName);
+  closeTeacherContextMenu();
+};
+
 
 // ====================================================================
 // BEYAZ TAHTA SİSTEMİ
@@ -2965,14 +3229,19 @@ const PRAISE_MESSAGES = [
   { text: 'Congratulations!', emoji: '🏆' }
 ];
 
-// Öğretmen Congrats! butonuna basınca — rastgele mesaj seç, Firebase'e yaz
+// Öğretmen Congrats! butonuna basınca — kutlama + aktif öğrenciye yıldız
 document.getElementById('congrats-btn').onclick = async () => {
   if (state.role !== 'teacher' || !dbRoomRef) return;
   const picked = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
   const { update } = window.fb;
+  // Kutlama animasyonu (herkese)
   await update(dbRoomRef, {
     praise: { text: picked.text, emoji: picked.emoji, at: Date.now() }
   });
+  // Aktif öğrenci varsa ona yıldız ver
+  if (currentActiveStudent && currentActiveStudent.name) {
+    giveStarToStudent(currentActiveStudent.name);
+  }
 };
 
 // Firebase'den övgü mesajı geldiğinde herkese göster
