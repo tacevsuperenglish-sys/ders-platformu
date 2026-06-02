@@ -309,6 +309,12 @@
     padding: 12px 0;
     overflow-y: auto;
     flex-shrink: 0;
+    transition: opacity 0.2s;
+  }
+  /* Yetkisiz kullanıcı için araç paneli soluk + tıklanamaz */
+  .wb-toolbar.no-permission {
+    opacity: 0.4;
+    pointer-events: none;
   }
   .wb-tool {
     width: 48px;
@@ -496,20 +502,19 @@
     position: absolute;
     bottom: 42px;
     left: 10px;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: white;
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 12px;
+    background: none;
+    color: #fbbf24;
+    font-size: 16px;
     font-weight: 800;
     display: none;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     z-index: 5;
-    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.5);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
   }
   .cam-star-badge.has-stars { display: flex; }
-  .cam-star-badge .star-icon { font-size: 11px; }
+  .cam-star-badge .star-icon { font-size: 16px; color: #fbbf24; }
+  .cam-star-badge .star-count { color: #fbbf24; font-weight: 800; }
   /* Yeni yıldız gelince zıplama */
   @keyframes starBump {
     0% { transform: scale(1); }
@@ -537,18 +542,29 @@
   }
 
 
-  /* Uçan yıldız (verilince ekranda süzülen) */
-  .flying-star {
+  /* Uçan yıldız v2 — ortada blop, sonra kutuya süzülür */
+  .flying-star-v2 {
     position: fixed;
-    font-size: 40px;
+    font-size: 80px;
     z-index: 9998;
     pointer-events: none;
-    animation: flyStar 1s ease-out forwards;
+    transform: translate(-50%, -50%) scale(0);
+    animation: starBlopFly 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    filter: drop-shadow(0 4px 12px rgba(251, 191, 36, 0.6));
   }
-  @keyframes flyStar {
-    0% { transform: scale(0) rotate(0deg); opacity: 0; }
-    30% { transform: scale(1.5) rotate(180deg); opacity: 1; }
-    100% { transform: scale(0.8) rotate(360deg); opacity: 0; }
+  @keyframes starBlopFly {
+    /* Blop: ortada zıplayarak belir */
+    0%  { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+    15% { transform: translate(-50%, -50%) scale(1.4) rotate(10deg); opacity: 1; }
+    30% { transform: translate(-50%, -50%) scale(1.1) rotate(-5deg); opacity: 1; }
+    45% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; }
+    /* Bekle bir an */
+    55% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; }
+    /* Süzül: kutuya doğru küçülerek git */
+    100% {
+      transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.25) rotate(360deg);
+      opacity: 0;
+    }
   }
 
   /* Sağ tık menüsüne yıldız ver seçeneği zaten context-menu var, ona ekleyeceğiz */
@@ -2550,33 +2566,11 @@ document.getElementById('mischief-save').onclick = async () => {
   showError('Haylazlık kaydedildi: ' + studentKey + ' (toplam ' + updated.count + ')');
 };
 
-// Firebase'den haylazlık verisi (sadece öğretmen kullanır)
+// Firebase'den haylazlık verisi — sadece sisteme kayıt, ekranda GÖSTERİLMEZ
 let mischiefData = {};
 function applyMischief(data) {
   mischiefData = data || {};
-  // Sadece öğretmen kutuda göstergesi görür
-  if (state.role !== 'teacher') return;
-  participantBoxes.forEach((entry) => {
-    if (entry.role !== 'student') return;
-    const info = mischiefData[entry.name];
-    const count = info ? (info.count || 0) : 0;
-    updateMischiefBadge(entry.box, count);
-  });
-}
-
-// Haylazlık göstergesi (sadece öğretmenin ekranında, küçük kırmızı sayaç)
-function updateMischiefBadge(box, count) {
-  let badge = box.querySelector('.cam-mischief-badge');
-  if (count <= 0) {
-    if (badge) badge.remove();
-    return;
-  }
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.className = 'cam-mischief-badge';
-    box.appendChild(badge);
-  }
-  badge.innerHTML = `<i class="fa-solid fa-face-frown"></i> ${count}`;
+  // Hiçbir görsel gösterge yok — sadece veri olarak tutulur (kayıt/rapor için)
 }
 
 
@@ -2601,12 +2595,20 @@ function updateStarBadge(box, count, animate) {
 }
 
 // Öğretmen bir öğrenciye yıldız verir (Firebase'e yazar)
-async function giveStarToStudent(name) {
+// delayMs: kaç ms sonra Firebase'e yazılsın (Congrats kutlaması bitsin diye)
+async function giveStarToStudent(name, delayMs = 0) {
   if (state.role !== 'teacher' || !dbRoomRef) return;
-  const current = studentStars[name] || 0;
-  const { update } = window.fb;
-  await update(dbRoomRef, { [`stars/${name}`]: current + 1 });
-  console.log('⭐ Yıldız verildi:', name, '→', current + 1);
+  const doGive = async () => {
+    const current = studentStars[name] || 0;
+    const { update } = window.fb;
+    await update(dbRoomRef, { [`stars/${name}`]: current + 1 });
+    console.log('⭐ Yıldız verildi:', name, '→', current + 1);
+  };
+  if (delayMs > 0) {
+    setTimeout(doGive, delayMs);
+  } else {
+    doGive();
+  }
 }
 
 // Firebase'den yıldız durumunu uygula (herkes görür)
@@ -2619,25 +2621,38 @@ function applyStars(stars) {
     const count = studentStars[entry.name] || 0;
     const prevCount = prev[entry.name] || 0;
     const increased = count > prevCount;
-    updateStarBadge(entry.box, count, increased);
-    // Yıldız arttıysa uçan yıldız animasyonu
     if (increased) {
+      // Önce uçan yıldız (blop + süzülme), sonra rozet güncellenir
       flyStarToBox(entry.box);
+      // Rozet sayısını süzülme bitince güncelle (zıplama efekti ile)
+      setTimeout(() => updateStarBadge(entry.box, count, true), 1400);
+    } else {
+      updateStarBadge(entry.box, count, false);
     }
   });
 }
 
-// Uçan yıldız animasyonu (kutuya doğru)
+// Uçan yıldız animasyonu — ortada blop, sonra kutuya süzülür
 function flyStarToBox(box) {
   const rect = box.getBoundingClientRect();
+  // Hedef: kutudaki yıldız rozetinin konumu (sol-alt)
+  const targetX = rect.left + 30;
+  const targetY = rect.bottom - 50;
+  // Başlangıç: ekranın tam ortası
+  const startX = window.innerWidth / 2;
+  const startY = window.innerHeight / 2;
+
   const star = document.createElement('div');
-  star.className = 'flying-star';
+  star.className = 'flying-star-v2';
   star.textContent = '⭐';
-  // Ekranın ortasından başla, kutuya doğru
-  star.style.left = (rect.left + rect.width / 2 - 20) + 'px';
-  star.style.top = (rect.top + rect.height / 2 - 20) + 'px';
+  star.style.left = startX + 'px';
+  star.style.top = startY + 'px';
+  // CSS değişkenleri ile hedef farkını ver
+  star.style.setProperty('--dx', (targetX - startX) + 'px');
+  star.style.setProperty('--dy', (targetY - startY) + 'px');
   document.body.appendChild(star);
-  setTimeout(() => star.remove(), 1000);
+
+  setTimeout(() => star.remove(), 1600);
 }
 
 // Sağ tık menüsü — Yıldız Ver
@@ -2739,7 +2754,8 @@ function initWhiteboard() {
         if (canUseWhiteboard()) wbRedo();
         return;
       }
-      // pen, eraser, text — araç seçimi
+      // pen, eraser, text — araç seçimi (yetki gerekir)
+      if (!canUseWhiteboard()) return;
       wbTool = tool;
       document.querySelectorAll('.wb-tool').forEach(b => {
         if (['pen','eraser','text'].includes(b.dataset.tool)) b.classList.remove('active');
@@ -2751,6 +2767,7 @@ function initWhiteboard() {
   // === RENKLER ===
   document.querySelectorAll('.wb-color').forEach(c => {
     c.onclick = () => {
+      if (!canUseWhiteboard()) return;
       wbColor = c.dataset.color;
       document.querySelectorAll('.wb-color').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
@@ -2761,6 +2778,7 @@ function initWhiteboard() {
   // === KALINLIK ===
   document.querySelectorAll('.wb-thickness').forEach(t => {
     t.onclick = () => {
+      if (!canUseWhiteboard()) return;
       wbSize = parseInt(t.dataset.size);
       document.querySelectorAll('.wb-thickness').forEach(x => x.classList.remove('active'));
       t.classList.add('active');
@@ -2837,6 +2855,18 @@ function canUseWhiteboard() {
   return currentActiveStudent && currentActiveStudent.name === state.name;
 }
 
+// Beyaz tahta araç panelini yetkiye göre göster/soluklaştır
+function refreshWhiteboardPermission() {
+  const toolbar = document.querySelector('.wb-toolbar');
+  if (!toolbar) return;
+  if (canUseWhiteboard()) {
+    toolbar.classList.remove('no-permission');
+  } else {
+    toolbar.classList.add('no-permission');
+  }
+}
+
+
 // Çizim — pointer down
 function wbPointerDown(e) {
   if (wbTool === 'text') return;
@@ -2847,14 +2877,18 @@ function wbPointerDown(e) {
   wbLastY = e.clientY - rect.top;
 
   // TEK TIK = NOKTA çiz (hareket etmeden de iz bıraksın)
-  const drawColor = wbTool === 'eraser' ? '#fdfdfd' : wbColor;
-  const drawSize = wbTool === 'eraser' ? wbSize * 5 : wbSize;
+  const isErase = wbTool === 'eraser';
+  const drawColor = wbColor;
+  const drawSize = isErase ? wbSize * 5 : wbSize;
+  wbCtx.save();
+  if (isErase) wbCtx.globalCompositeOperation = 'destination-out';
   wbCtx.beginPath();
   wbCtx.arc(wbLastX, wbLastY, drawSize / 2, 0, Math.PI * 2);
-  wbCtx.fillStyle = drawColor;
+  wbCtx.fillStyle = isErase ? 'rgba(0,0,0,1)' : drawColor;
   wbCtx.fill();
+  wbCtx.restore();
   // Karşı tarafa da nokta gönder
-  broadcastWhiteboard({ type: 'dot', x: wbLastX, y: wbLastY, color: drawColor, size: drawSize, w: wbCanvas.width, h: wbCanvas.height });
+  broadcastWhiteboard({ type: 'dot', x: wbLastX, y: wbLastY, color: drawColor, size: drawSize, erase: isErase, w: wbCanvas.width, h: wbCanvas.height });
 }
 
 function wbPointerMove(e) {
@@ -2864,12 +2898,13 @@ function wbPointerMove(e) {
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
 
-  const drawColor = wbTool === 'eraser' ? '#fdfdfd' : wbColor;
-  const drawSize = wbTool === 'eraser' ? wbSize * 5 : wbSize;
+  const isErase = wbTool === 'eraser';
+  const drawColor = wbColor;
+  const drawSize = isErase ? wbSize * 5 : wbSize;
 
-  drawLine(wbLastX, wbLastY, x, y, drawColor, drawSize);
+  drawLine(wbLastX, wbLastY, x, y, drawColor, drawSize, isErase);
   // Firebase'e gönder (karşı taraf görsün)
-  broadcastWhiteboard({ type: 'line', x1: wbLastX, y1: wbLastY, x2: x, y2: y, color: drawColor, size: drawSize, w: wbCanvas.width, h: wbCanvas.height });
+  broadcastWhiteboard({ type: 'line', x1: wbLastX, y1: wbLastY, x2: x, y2: y, color: drawColor, size: drawSize, erase: isErase, w: wbCanvas.width, h: wbCanvas.height });
 
   wbLastX = x;
   wbLastY = y;
@@ -2883,15 +2918,24 @@ function wbPointerUp() {
   }
 }
 
-function drawLine(x1, y1, x2, y2, color, size) {
+function drawLine(x1, y1, x2, y2, color, size, erase) {
+  wbCtx.save();
+  if (erase) {
+    // Gerçek silme — pikselleri şeffaf yapar, altındaki ızgara kalır
+    wbCtx.globalCompositeOperation = 'destination-out';
+    wbCtx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    wbCtx.globalCompositeOperation = 'source-over';
+    wbCtx.strokeStyle = color;
+  }
   wbCtx.beginPath();
   wbCtx.moveTo(x1, y1);
   wbCtx.lineTo(x2, y2);
-  wbCtx.strokeStyle = color;
   wbCtx.lineWidth = size;
   wbCtx.lineCap = 'round';
   wbCtx.lineJoin = 'round';
   wbCtx.stroke();
+  wbCtx.restore();
 }
 
 function clearWhiteboard() {
@@ -3015,8 +3059,8 @@ function applyWhiteboardState(isOpen) {
     document.getElementById('wb-close').style.display = state.role === 'teacher' ? 'flex' : 'none';
     setTimeout(() => {
       resizeWhiteboardCanvas();
-      // Başlangıç (boş) durumu geçmişe ekle
       if (wbHistory.length === 0) pushWbHistory();
+      refreshWhiteboardPermission();
     }, 50);
   } else if (!isOpen && wbIsOpen) {
     wbIsOpen = false;
@@ -3044,15 +3088,18 @@ function applyWhiteboardEvent(ev) {
     // Koordinatları kendi canvas boyutuma ölçekle
     const scaleX = wbCanvas.width / (ev.w || wbCanvas.width);
     const scaleY = wbCanvas.height / (ev.h || wbCanvas.height);
-    drawLine(ev.x1 * scaleX, ev.y1 * scaleY, ev.x2 * scaleX, ev.y2 * scaleY, ev.color, ev.size);
+    drawLine(ev.x1 * scaleX, ev.y1 * scaleY, ev.x2 * scaleX, ev.y2 * scaleY, ev.color, ev.size, ev.erase);
   } else if (ev.type === 'dot') {
     // Tek tık noktası
     const scaleX = wbCanvas.width / (ev.w || wbCanvas.width);
     const scaleY = wbCanvas.height / (ev.h || wbCanvas.height);
+    wbCtx.save();
+    if (ev.erase) wbCtx.globalCompositeOperation = 'destination-out';
     wbCtx.beginPath();
     wbCtx.arc(ev.x * scaleX, ev.y * scaleY, ev.size / 2, 0, Math.PI * 2);
-    wbCtx.fillStyle = ev.color;
+    wbCtx.fillStyle = ev.erase ? 'rgba(0,0,0,1)' : ev.color;
     wbCtx.fill();
+    wbCtx.restore();
   } else if (ev.type === 'clear') {
     clearWhiteboard();
   } else if (ev.type === 'snapshot') {
@@ -3238,9 +3285,9 @@ document.getElementById('congrats-btn').onclick = async () => {
   await update(dbRoomRef, {
     praise: { text: picked.text, emoji: picked.emoji, at: Date.now() }
   });
-  // Aktif öğrenci varsa ona yıldız ver
+  // Aktif öğrenci varsa ona yıldız ver — kutlama animasyonu bitince (çakışmasın)
   if (currentActiveStudent && currentActiveStudent.name) {
-    giveStarToStudent(currentActiveStudent.name);
+    giveStarToStudent(currentActiveStudent.name, 2600); // ~2.6s sonra (kutlama ~2.5s)
   }
 };
 
@@ -3483,6 +3530,7 @@ function applyActiveStudent(activeStudent) {
 
   // Kilit varsa: bu kullanıcı aktif öğrenci mi? → etkinliği aç
   refreshActivityLock();
+  refreshWhiteboardPermission();
 }
 
 // ====================================================================
@@ -3507,6 +3555,9 @@ function applyActivityLock(locked) {
 }
 
 function refreshActivityLock() {
+  // Beyaz tahta yetkisini her durumda güncelle
+  refreshWhiteboardPermission();
+
   const activityArea = document.getElementById('activity-area');
   if (!activityArea) return;
 
