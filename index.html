@@ -1647,25 +1647,38 @@ function attachLocalVideo(track) {
 // Mikrofon / Kamera toggle
 document.getElementById('toggle-mic').onclick = async () => {
   if (!lkRoom) return;
-  micEnabled = !micEnabled;
-  await lkRoom.localParticipant.setMicrophoneEnabled(micEnabled);
+  const targetState = !micEnabled;
+  try {
+    await lkRoom.localParticipant.setMicrophoneEnabled(targetState);
+    micEnabled = targetState;
+  } catch (e) {
+    // Cihaz yok ya da izin reddedildi — kapalı kal
+    console.warn('Mikrofon değiştirilemedi:', e.name, e.message);
+    micEnabled = false;
+    showError('Mikrofona erişilemedi. Tarayıcı izinlerini kontrol edin.');
+  }
   const btn = document.getElementById('toggle-mic');
   btn.innerHTML = micEnabled ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
   btn.classList.toggle('bg-red-50', !micEnabled);
   btn.classList.toggle('text-red-600', !micEnabled);
   btn.classList.toggle('bg-indigo-50', micEnabled);
   btn.classList.toggle('text-indigo-600', micEnabled);
-  // Kendi kutuma mic durumunu uygula
   const entry = participantBoxes.get(myPresenceId);
   if (entry) entry.box.classList.toggle('mic-muted', !micEnabled);
 };
 document.getElementById('toggle-cam').onclick = async () => {
   if (!lkRoom) return;
-  camEnabled = !camEnabled;
-  console.log('🎛️ Toggle camera:', camEnabled ? 'AÇILIYOR' : 'KAPATILIYOR');
+  const targetState = !camEnabled;
+  console.log('🎛️ Toggle camera:', targetState ? 'AÇILIYOR' : 'KAPATILIYOR');
 
-  // LiveKit'e söyle
-  await lkRoom.localParticipant.setCameraEnabled(camEnabled);
+  try {
+    await lkRoom.localParticipant.setCameraEnabled(targetState);
+    camEnabled = targetState;
+  } catch (e) {
+    console.warn('Kamera değiştirilemedi:', e.name, e.message);
+    camEnabled = false;
+    showError('Kameraya erişilemedi. Tarayıcı izinlerini kontrol edin.');
+  }
 
   // Buton görselini güncelle
   const btn = document.getElementById('toggle-cam');
@@ -2061,9 +2074,15 @@ function applyAnswerToUI(pageIndex, ans) {
 
   if (ans.type === 'writing') {
     const ta = document.getElementById('writing-input');
-    if (ta && ta.value !== ans.text) {
+    if (!ta) return;
+    // ÖNEMLİ: Şu an bu textarea'da yazıyorsam (odaktaysa), DOKUNMA!
+    // Yoksa kendi yazdığım Firebase'den geri gelince imleç bozulur, harfler silinir
+    if (document.activeElement === ta) return;
+    // Sadece karşı taraf yazıyorsa güncelle
+    if (ta.value !== ans.text) {
       ta.value = ans.text;
-      document.getElementById('word-count').textContent = `${ans.text.trim().split(/\s+/).filter(Boolean).length} kelime`;
+      const wc = document.getElementById('word-count');
+      if (wc) wc.textContent = `${ans.text.trim().split(/\s+/).filter(Boolean).length} kelime`;
     }
   }
 }
