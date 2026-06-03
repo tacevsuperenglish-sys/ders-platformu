@@ -1078,10 +1078,10 @@
 <!-- ============ BEKLEME ODASI (Google Meet tarzı ön izleme) ============ -->
 <div id="waiting-room" class="fixed inset-0 z-50 flex-col items-center justify-start pt-6 px-4 md:px-8 overflow-y-auto" style="display:none; background:#f8fafc;">
 
-  <!-- Üst: Excited logo + slogan -->
+  <!-- Üst: Excited logo + hoş geldin -->
   <div class="flex flex-col items-center mb-16">
     <img src="/excited_logo.png" alt="TACEV Super English" class="h-32 md:h-44 w-auto mb-5" style="filter: drop-shadow(0 6px 16px rgba(0,0,0,0.15));">
-    <h1 class="text-2xl md:text-3xl font-black text-center" style="color:#302d7f;">Maceraya hazır mısın!</h1>
+    <h1 id="wr-welcome" class="text-2xl md:text-3xl font-black text-center" style="color:#302d7f;">Hoş geldin!</h1>
   </div>
 
   <div class="w-full max-w-5xl flex flex-col md:flex-row items-center gap-8">
@@ -1123,6 +1123,7 @@
 
     <!-- SAĞ: Bilgi + Katıl -->
     <div class="flex-1 w-full max-w-sm text-center md:text-left">
+      <h2 class="text-2xl md:text-3xl font-black mb-3" style="color:#302d7f;">Maceraya hazır mısın!</h2>
       <p id="wr-ready-status" class="text-base text-gray-600 mb-6">Mikrofon ve kameranı kontrol et, hazır olunca katıl.</p>
 
       <button id="wr-join-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition shadow-lg flex justify-center items-center gap-2 text-base">
@@ -1478,6 +1479,7 @@ async function openWaitingRoom() {
 
   // Bilgileri doldur
   document.getElementById('wr-avatar').textContent = getInitials(state.name);
+  document.getElementById('wr-welcome').textContent = 'Hoş geldin ' + state.name + ',';
 
   // Kamera + mikrofon izni iste ve ön izleme başlat
   await wrStartPreview();
