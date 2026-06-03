@@ -2667,6 +2667,7 @@ document.getElementById('ctx-give-star').onclick = () => {
 // ====================================================================
 let wbCanvas, wbCtx;
 let wbDrawing = false;
+let wbDrawBlocked = false; // clear sonrası el kalkana kadar çizimi blokla
 let wbTool = 'pen';
 let wbColor = '#1e1b4b';
 let wbSize = 4;
@@ -2871,6 +2872,7 @@ function refreshWhiteboardPermission() {
 function wbPointerDown(e) {
   if (wbTool === 'text') return;
   if (!canUseWhiteboard()) return;
+  wbDrawBlocked = false; // Yeni basış, bloke yok
   wbDrawing = true;
   const rect = wbCanvas.getBoundingClientRect();
   wbLastX = e.clientX - rect.left;
@@ -2893,6 +2895,7 @@ function wbPointerDown(e) {
 
 function wbPointerMove(e) {
   if (!wbDrawing) return;
+  if (wbDrawBlocked) return; // clear sonrası bloke
   if (!canUseWhiteboard()) return;
   const rect = wbCanvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
@@ -2911,6 +2914,7 @@ function wbPointerMove(e) {
 }
 
 function wbPointerUp() {
+  wbDrawBlocked = false; // El kalktı, yeni çizime izin ver
   if (wbDrawing) {
     wbDrawing = false;
     // Kuyrukta kalan son çizim noktalarını hemen gönder
@@ -3118,11 +3122,14 @@ function applyWhiteboardBatch(batch) {
 }
 
 // Tek bir çizim olayını uygula
+let lastClearTime = 0;
 function applyWhiteboardEvent(ev) {
   if (!ev) return;
   // Kendi gönderdiğim olayı tekrar çizme
   if (ev.by === state.name) return;
   if (!wbCtx) return;
+  // Clear'dan ÖNCE üretilmiş çizim/nokta olaylarını yoksay (gecikmiş paketler)
+  if ((ev.type === 'line' || ev.type === 'dot') && ev.at && ev.at < lastClearTime) return;
 
   if (ev.type === 'line') {
     // Koordinatları kendi canvas boyutuma ölçekle
@@ -3142,6 +3149,9 @@ function applyWhiteboardEvent(ev) {
     wbCtx.restore();
   } else if (ev.type === 'clear') {
     wbDrawing = false; // O an çiziyorsam durdur
+    wbDrawBlocked = true; // El kalkana kadar yeni çizim engelle
+    wbEventQueue = []; // Kuyrukta bekleyen kendi noktalarımı da iptal et
+    lastClearTime = ev.at || Date.now(); // Bu andan önceki çizimleri yoksay
     clearWhiteboard();
   } else if (ev.type === 'snapshot') {
     // Karşı taraf undo/redo yaptı → tüm canvas'ı güncelle
