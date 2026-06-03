@@ -1539,6 +1539,8 @@ async function setupFirebase() {
     applyWhiteboardState(data.whiteboardOpen === true);
     // Beyaz tahta çizim olayları (batch)
     applyWhiteboardBatch(data.whiteboardBatch);
+    // Beyaz tahta KRİTİK olayları (clear, snapshot, text) — ayrı kanal
+    applyWhiteboardCritical(data.whiteboardCritical);
     // Yıldızlar
     applyStars(data.stars || {});
     // Haylazlık (sadece öğretmen görür)
@@ -3049,19 +3051,23 @@ let wbFlushTimer = null;
 
 async function broadcastWhiteboard(data) {
   if (!dbRoomRef) return;
-  // Olayı kuyruğa ekle
-  wbEventQueue.push({ ...data, at: Date.now(), seq: wbSeqCounter++, by: state.name });
 
-  // clear/snapshot/text olayları ANINDA gitsin (kritik)
+  // KRİTİK olaylar (clear, snapshot, text) → AYRI key'e, ANINDA, çakışmasız
   const urgent = ['clear', 'snapshot', 'text-new', 'text-update', 'text-lock', 'text-move'].includes(data.type);
   if (urgent) {
-    flushWbEvents();
+    const { update } = window.fb;
+    try {
+      await update(dbRoomRef, {
+        whiteboardCritical: { ...data, at: Date.now(), seq: wbSeqCounter++, by: state.name }
+      });
+    } catch (e) { console.warn('Kritik tahta olayı hatası:', e.message); }
     return;
   }
 
-  // Çizgi/nokta olayları — kısa throttle ile toplu gönder
+  // Çizgi/nokta olayları — kuyruğa ekle, throttle ile toplu gönder
+  wbEventQueue.push({ ...data, at: Date.now(), seq: wbSeqCounter++, by: state.name });
   if (!wbFlushTimer) {
-    wbFlushTimer = setTimeout(flushWbEvents, 50); // 50ms'de bir topla gönder
+    wbFlushTimer = setTimeout(flushWbEvents, 50);
   }
 }
 
@@ -3117,8 +3123,16 @@ function applyWhiteboardBatch(batch) {
   if (batch.at <= lastWbBatchTime) return;
   lastWbBatchTime = batch.at;
   if (!batch.events) return;
-  // Batch içindeki tüm olayları sırayla uygula
   batch.events.forEach(ev => applyWhiteboardEvent(ev));
+}
+
+// Kritik olayları işle (clear, snapshot, text) — ayrı kanal
+let lastWbCriticalTime = 0;
+function applyWhiteboardCritical(ev) {
+  if (!ev || !ev.at) return;
+  if (ev.at <= lastWbCriticalTime) return;
+  lastWbCriticalTime = ev.at;
+  applyWhiteboardEvent(ev);
 }
 
 // Tek bir çizim olayını uygula
@@ -3148,6 +3162,7 @@ function applyWhiteboardEvent(ev) {
     wbCtx.fill();
     wbCtx.restore();
   } else if (ev.type === 'clear') {
+    console.log('🧹 CLEAR olayı alındı! Çizen:', wbDrawing, 'Kim gönderdi:', ev.by);
     wbDrawing = false; // O an çiziyorsam durdur
     wbDrawBlocked = true; // El kalkana kadar yeni çizim engelle
     wbEventQueue = []; // Kuyrukta bekleyen kendi noktalarımı da iptal et
