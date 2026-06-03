@@ -1075,6 +1075,62 @@
   </div>
 </div>
 
+<!-- ============ BEKLEME ODASI (Google Meet tarzı ön izleme) ============ -->
+<div id="waiting-room" class="fixed inset-0 z-50 items-center justify-center p-4 md:p-8" style="display:none; background:#f8fafc;">
+  <div class="w-full max-w-5xl flex flex-col md:flex-row items-center gap-8">
+
+    <!-- SOL: Kamera ön izleme -->
+    <div class="flex-1 w-full">
+      <div class="relative rounded-2xl overflow-hidden shadow-2xl" style="background:linear-gradient(135deg,#1e1b4b,#4338ca); aspect-ratio:16/10;">
+        <!-- Header -->
+        <div class="absolute top-0 left-0 right-0 flex items-center justify-between px-5 py-3 z-10">
+          <span class="text-white font-bold text-sm">TACEV Super English</span>
+        </div>
+
+        <!-- Video ön izleme -->
+        <video id="wr-video" autoplay muted playsinline class="w-full h-full object-cover" style="display:none;"></video>
+
+        <!-- Kamera kapalı placeholder -->
+        <div id="wr-placeholder" class="absolute inset-0 flex flex-col items-center justify-center gap-4">
+          <div id="wr-avatar" class="rounded-full flex items-center justify-center font-black text-white" style="width:90px;height:90px;background:linear-gradient(45deg,#0075e5,#eb0bc4);font-size:36px;">?</div>
+          <div id="wr-status-text" class="text-white/90 font-bold text-center px-6">Kamera kapalı</div>
+        </div>
+
+        <!-- Alt kontroller (mic/cam toggle) -->
+        <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-4 z-10">
+          <button id="wr-mic-btn" class="w-12 h-12 rounded-full flex items-center justify-center transition shadow-lg" style="background:white; color:#1e1b4b;" title="Mikrofon">
+            <i class="fa-solid fa-microphone"></i>
+          </button>
+          <button id="wr-cam-btn" class="w-12 h-12 rounded-full flex items-center justify-center transition shadow-lg" style="background:white; color:#1e1b4b;" title="Kamera">
+            <i class="fa-solid fa-video"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- İzin uyarısı -->
+      <div id="wr-permission-warning" class="mt-3 text-center text-sm font-semibold text-amber-600" style="display:none;">
+        <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+        <span id="wr-permission-text">Kamera ve mikrofon izni verilmedi</span>
+      </div>
+    </div>
+
+    <!-- SAĞ: Bilgi + Katıl -->
+    <div class="flex-1 w-full max-w-sm text-center md:text-left">
+      <h2 id="wr-lesson-title" class="text-2xl md:text-3xl font-black text-indigo-900 mb-2">Derse Hazır mısın?</h2>
+      <p class="text-gray-500 mb-1" id="wr-room-info">Ders kodu</p>
+      <p id="wr-ready-status" class="text-sm text-gray-600 mb-6">Mikrofon ve kameranı kontrol et, hazır olunca katıl.</p>
+
+      <button id="wr-join-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition shadow-lg flex justify-center items-center gap-2 text-base">
+        <i class="fa-solid fa-video"></i> Derse Katıl
+      </button>
+
+      <button id="wr-back-btn" class="w-full mt-3 text-gray-500 hover:text-gray-700 font-semibold py-2 text-sm transition">
+        <i class="fa-solid fa-arrow-left mr-1"></i> Geri dön
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ ANA UYGULAMA ============ -->
 <div id="app" class="app-grid" style="display:none;">
 
@@ -1397,7 +1453,209 @@ document.getElementById('enter-btn').onclick = async () => {
     return;
   }
 
+  // Lobi'den bekleme odasına geç
   document.getElementById('lobby').style.display = 'none';
+  openWaitingRoom();
+};
+
+// ====================================================================
+// BEKLEME ODASI (Google Meet tarzı ön izleme)
+// ====================================================================
+let wrStream = null;        // ön izleme medya akışı
+let wrMicOn = true;         // kullanıcının mikrofon tercihi
+let wrCamOn = true;         // kullanıcının kamera tercihi
+let wrMicAllowed = false;   // tarayıcı izni var mı
+let wrCamAllowed = false;
+
+async function openWaitingRoom() {
+  const wr = document.getElementById('waiting-room');
+  wr.style.display = 'flex';
+
+  // Bilgileri doldur
+  document.getElementById('wr-room-info').textContent = 'Ders kodu: ' + state.room;
+  document.getElementById('wr-avatar').textContent = getInitials(state.name);
+  document.getElementById('wr-lesson-title').textContent = (state.role === 'teacher' ? 'Teacher ' : '') + state.name + ', hazır mısın?';
+
+  // Kamera + mikrofon izni iste ve ön izleme başlat
+  await wrStartPreview();
+}
+
+async function wrStartPreview() {
+  const video = document.getElementById('wr-video');
+  const placeholder = document.getElementById('wr-placeholder');
+  const statusText = document.getElementById('wr-status-text');
+  const warning = document.getElementById('wr-permission-warning');
+  const warnText = document.getElementById('wr-permission-text');
+
+  // Önce kamera+mikrofon dene
+  try {
+    wrStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    wrCamAllowed = true;
+    wrMicAllowed = true;
+  } catch (e) {
+    // İkisi birden olmadı — ayrı ayrı dene
+    try {
+      wrStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      wrCamAllowed = true;
+      wrMicAllowed = false;
+    } catch (e2) {
+      try {
+        wrStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        wrCamAllowed = false;
+        wrMicAllowed = true;
+      } catch (e3) {
+        wrCamAllowed = false;
+        wrMicAllowed = false;
+      }
+    }
+  }
+
+  // Video ön izlemesini bağla
+  if (wrStream && wrCamAllowed) {
+    video.srcObject = wrStream;
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+    wrCamOn = true;
+  } else {
+    video.style.display = 'none';
+    placeholder.style.display = 'flex';
+    wrCamOn = false;
+  }
+
+  // Mikrofon tercihi
+  wrMicOn = wrMicAllowed;
+
+  wrUpdateButtons();
+  wrUpdateWarning();
+}
+
+function wrUpdateButtons() {
+  const micBtn = document.getElementById('wr-mic-btn');
+  const camBtn = document.getElementById('wr-cam-btn');
+
+  // Mikrofon butonu
+  if (wrMicOn && wrMicAllowed) {
+    micBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+    micBtn.style.background = 'white';
+    micBtn.style.color = '#1e1b4b';
+  } else {
+    micBtn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+    micBtn.style.background = '#ef4444';
+    micBtn.style.color = 'white';
+  }
+
+  // Kamera butonu
+  if (wrCamOn && wrCamAllowed) {
+    camBtn.innerHTML = '<i class="fa-solid fa-video"></i>';
+    camBtn.style.background = 'white';
+    camBtn.style.color = '#1e1b4b';
+  } else {
+    camBtn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+    camBtn.style.background = '#ef4444';
+    camBtn.style.color = 'white';
+  }
+}
+
+function wrUpdateWarning() {
+  const warning = document.getElementById('wr-permission-warning');
+  const warnText = document.getElementById('wr-permission-text');
+  const statusText = document.getElementById('wr-status-text');
+
+  // Placeholder durum metni
+  if (!wrCamAllowed) {
+    statusText.textContent = 'Kameraya izin verilmedi';
+  } else if (!wrCamOn) {
+    statusText.textContent = 'Kamera kapalı';
+  }
+
+  // Uyarı mesajı
+  let msgs = [];
+  if (!wrCamAllowed && !wrMicAllowed) {
+    msgs.push('Kamera ve mikrofon izni verilmedi');
+  } else {
+    if (!wrCamAllowed) msgs.push('Kamera izni yok');
+    if (!wrMicAllowed) msgs.push('Mikrofon izni yok');
+  }
+  // Kullanıcı kapatmışsa ayrı bilgi
+  if (wrCamAllowed && !wrCamOn) msgs.push('Kamera kapalı');
+  if (wrMicAllowed && !wrMicOn) msgs.push('Mikrofon kapalı');
+
+  if (msgs.length > 0) {
+    warning.style.display = 'block';
+    warnText.textContent = msgs.join(' • ');
+  } else {
+    warning.style.display = 'none';
+  }
+}
+
+// Bekleme odası mikrofon toggle
+document.getElementById('wr-mic-btn').onclick = () => {
+  if (!wrMicAllowed) {
+    showError('Mikrofon izni verilmemiş. Tarayıcı ayarlarından izin verebilirsiniz.');
+    return;
+  }
+  wrMicOn = !wrMicOn;
+  // Akıştaki ses izini aç/kapat
+  if (wrStream) {
+    wrStream.getAudioTracks().forEach(t => t.enabled = wrMicOn);
+  }
+  wrUpdateButtons();
+  wrUpdateWarning();
+};
+
+// Bekleme odası kamera toggle
+document.getElementById('wr-cam-btn').onclick = () => {
+  if (!wrCamAllowed) {
+    showError('Kamera izni verilmemiş. Tarayıcı ayarlarından izin verebilirsiniz.');
+    return;
+  }
+  wrCamOn = !wrCamOn;
+  const video = document.getElementById('wr-video');
+  const placeholder = document.getElementById('wr-placeholder');
+  if (wrCamOn) {
+    if (wrStream) wrStream.getVideoTracks().forEach(t => t.enabled = true);
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    if (wrStream) wrStream.getVideoTracks().forEach(t => t.enabled = false);
+    video.style.display = 'none';
+    placeholder.style.display = 'flex';
+  }
+  wrUpdateButtons();
+  wrUpdateWarning();
+};
+
+// Geri dön — lobiye
+document.getElementById('wr-back-btn').onclick = () => {
+  // Ön izleme akışını kapat
+  if (wrStream) {
+    wrStream.getTracks().forEach(t => t.stop());
+    wrStream = null;
+  }
+  document.getElementById('waiting-room').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+};
+
+// Derse Katıl — bekleme odasından asıl derse
+document.getElementById('wr-join-btn').onclick = async () => {
+  // Ön izleme akışını durdur (LiveKit kendi akışını açacak)
+  if (wrStream) {
+    wrStream.getTracks().forEach(t => t.stop());
+    wrStream = null;
+  }
+
+  // Kullanıcının tercihlerini global state'e aktar
+  micEnabled = wrMicOn && wrMicAllowed;
+  camEnabled = wrCamOn && wrCamAllowed;
+
+  document.getElementById('waiting-room').style.display = 'none';
+  await enterLesson();
+};
+
+// ====================================================================
+// DERSE GİRİŞ (bekleme odasından sonra)
+// ====================================================================
+async function enterLesson() {
   document.getElementById('app').style.display = 'grid';
   document.getElementById('control-bar').style.display = 'flex';
 
@@ -1794,43 +2052,55 @@ async function setupVideo() {
     });
   });
 
-  // ===== ADIM 5: Mikrofon dene (BAĞIMSIZ try/catch) =====
-  try {
-    await lkRoom.localParticipant.setMicrophoneEnabled(true);
-    console.log('✓ Mikrofon açıldı');
-    // Kendi kutumda mikrofonun açık olduğunu işaretle
-    const entry = participantBoxes.get(myPresenceId);
-    if (entry) entry.box.classList.remove('mic-muted');
-  } catch (micErr) {
-    console.warn('⚠ Mikrofon izni yok:', micErr.message);
-    micEnabled = false;
+  // ===== ADIM 5: Mikrofon — bekleme odası tercihine göre =====
+  if (micEnabled) {
+    try {
+      await lkRoom.localParticipant.setMicrophoneEnabled(true);
+      console.log('✓ Mikrofon açıldı');
+      const entry = participantBoxes.get(myPresenceId);
+      if (entry) entry.box.classList.remove('mic-muted');
+    } catch (micErr) {
+      console.warn('⚠ Mikrofon izni yok:', micErr.message);
+      micEnabled = false;
+    }
+  }
+  // Mikrofon kapalıysa (tercih veya izin yok) → buton + kutu kırmızı
+  if (!micEnabled) {
     const micBtn = document.getElementById('toggle-mic');
     if (micBtn) {
       micBtn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
       micBtn.classList.add('bg-red-50', 'text-red-600');
       micBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
     }
-    // Kendi kutuma mic-muted ekle (kendim göreyim)
     const entry = participantBoxes.get(myPresenceId);
     if (entry) entry.box.classList.add('mic-muted');
   }
 
-  // ===== ADIM 6: Kamera dene (BAĞIMSIZ try/catch) =====
-  try {
-    await lkRoom.localParticipant.setCameraEnabled(true);
-    const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
-    if (pubs.length > 0 && pubs[0].track) attachLocalVideo(pubs[0].track);
-    console.log('✓ Kamera açıldı');
-  } catch (camErr) {
-    console.warn('⚠ Kamera izni yok:', camErr.message);
-    camEnabled = false;
+  // ===== ADIM 6: Kamera — bekleme odası tercihine göre =====
+  if (camEnabled) {
+    try {
+      await lkRoom.localParticipant.setCameraEnabled(true);
+      const pubs = Array.from(lkRoom.localParticipant.videoTrackPublications.values());
+      if (pubs.length > 0 && pubs[0].track) attachLocalVideo(pubs[0].track);
+      console.log('✓ Kamera açıldı');
+    } catch (camErr) {
+      console.warn('⚠ Kamera izni yok:', camErr.message);
+      camEnabled = false;
+    }
+  }
+  // Kamera kapalıysa (tercih veya izin yok) → buton kırmızı, placeholder kalır
+  if (!camEnabled) {
     const camBtn = document.getElementById('toggle-cam');
     if (camBtn) {
       camBtn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
       camBtn.classList.add('bg-red-50', 'text-red-600');
       camBtn.classList.remove('bg-indigo-50', 'text-indigo-600');
     }
-    // Kutu zaten 'no-video' ile başladı, placeholder görünmeye devam edecek
+    const entry = participantBoxes.get(myPresenceId);
+    if (entry) {
+      entry.box.querySelectorAll('video').forEach(v => v.remove());
+      entry.box.classList.add('no-video');
+    }
   }
 
   console.log('🎉 Setup tamamlandı, derse hazır');
