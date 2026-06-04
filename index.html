@@ -439,7 +439,7 @@
   #whiteboard-btn:hover { background: #e0e7ff; }
   #whiteboard-btn.active { background: #4f46e5; color: white; }
 
-  .cam-wrap video { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; }
+  .cam-wrap video { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 1; transform: scaleX(-1); }
   .cam-wrap.no-video video { display: none; }
 
   /* Avatar placeholder — kamera yoksa gösterilen */
@@ -2316,7 +2316,6 @@ function attachLocalVideo(track) {
   targetBox.querySelectorAll('video').forEach(v => v.remove());
   const videoEl = track.attach();
   videoEl.muted = true;
-  videoEl.style.transform = 'scaleX(-1)'; // Kendi görüntüm ayna (doğal his)
   targetBox.appendChild(videoEl);
   targetBox.classList.remove('no-video');
 }
@@ -2396,7 +2395,6 @@ document.getElementById('toggle-cam').onclick = async () => {
         videoEl.style.width = '100%';
         videoEl.style.height = '100%';
         videoEl.style.objectFit = 'cover';
-        videoEl.style.transform = 'scaleX(-1)';
         entry.box.appendChild(videoEl);
         entry.box.classList.remove('no-video');
         console.log('✓ Kendi kameram açıldı, video elementi takıldı (deneme', attempts + ')');
