@@ -182,13 +182,15 @@
     min-height: 180px;
   }
 
-  /* ════ DERS EKRANI — yıldızlı gökyüzü zemini ("tepsi") ════ */
-  #app {
-    position: relative;
+  /* ════ DERS EKRANI TEMALARI ════ */
+  #app { position: relative; }
+  #app > * { position: relative; z-index: 1; }
+
+  /* TEMA 1: SPACE (uzay, yıldızlı gece) — varsayılan */
+  body.theme-space #app {
     background: linear-gradient(160deg, #1a1450 0%, #2d2580 55%, #4338ca 100%) !important;
   }
-  /* Ders ekranı yıldız katmanı */
-  #app::before {
+  body.theme-space #app::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -214,8 +216,16 @@
     background-size: 100% 100%;
     animation: starTwinkle 4s ease-in-out infinite;
   }
-  /* Header, main, footer, kameralar üstte kalsın */
-  #app > * { position: relative; z-index: 1; }
+
+  /* TEMA 2: PLAIN (sade, açık krem zemin) */
+  body.theme-plain #app {
+    background: #f8fafc !important;
+    background-image:
+      radial-gradient(at 15% 20%, rgba(0, 117, 229, 0.08) 0px, transparent 50%),
+      radial-gradient(at 85% 10%, rgba(235, 11, 196, 0.06) 0px, transparent 50%),
+      radial-gradient(at 75% 85%, rgba(99, 102, 241, 0.06) 0px, transparent 50%) !important;
+  }
+  body.theme-plain #app::before { display: none; }
 
 
 
@@ -329,6 +339,7 @@
     background: #fef2f2;
     color: #dc2626;
   }
+
 
   /* PASİF DURUM — sadece aktif öğrenci etkileşebilir, görsel olarak hiçbir şey değişmez */
   body.activity-locked #activity-area:not(.unlocked-for-me) {
@@ -1328,6 +1339,7 @@
   #wr-join-btn:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 36px rgba(255,217,61,0.6) !important; }
   #wr-join-btn:active { transform: translateY(0) scale(0.99); }
   #wr-mic-btn:hover, #wr-cam-btn:hover { transform: scale(1.1); }
+
 </style>
 </head>
 <body class="font-sans text-gray-800">
@@ -1571,7 +1583,7 @@
   </aside>
 
   <!-- KONTROL ÇUBUĞU -->
-  <div id="control-bar" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 flex items-center gap-2" style="display:none; z-index: 40;">
+  <div id="control-bar" class="fixed bg-white border border-gray-200 rounded-2xl shadow-lg p-2 flex items-center gap-2" style="display:none; z-index:40; bottom:16px; left:50%; transform:translateX(-50%); width:fit-content;">
     <button id="toggle-mic" class="w-11 h-11 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition" title="Mikrofon">
       <i class="fa-solid fa-microphone"></i>
     </button>
@@ -3127,6 +3139,42 @@ function showError(msg) {
 
 // Sayfa açılınca layout A class'ını body'e ekle
 document.body.classList.add('layout-a');
+
+// ====================================================================
+// DERS EKRANI TEMA DEĞİŞTİRME — klavyeden 'space' / 'plain'
+// ====================================================================
+let themeBuffer = '';
+let themeTimer = null;
+
+// Varsayılan tema: space
+document.body.classList.add('theme-space');
+
+document.addEventListener('keydown', (e) => {
+  // Input/textarea içindeyken takip etme
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.target.isContentEditable) return;
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const key = e.key;
+  if (key.length !== 1 || !/[a-zA-Z]/.test(key)) return;
+
+  themeBuffer += key.toLowerCase();
+  if (themeBuffer.length > 10) themeBuffer = themeBuffer.slice(-10);
+  clearTimeout(themeTimer);
+  themeTimer = setTimeout(() => { themeBuffer = ''; }, 2000);
+
+  if (themeBuffer.endsWith('space')) {
+    document.body.classList.remove('theme-plain');
+    document.body.classList.add('theme-space');
+    console.log('🌌 Uzay teması');
+    themeBuffer = '';
+  } else if (themeBuffer.endsWith('plain')) {
+    document.body.classList.remove('theme-space');
+    document.body.classList.add('theme-plain');
+    console.log('🤍 Sade tema');
+    themeBuffer = '';
+  }
+});
+
 
 // ====================================================================
 // İMLEÇ PARILTISI — lobi ekranında fare izinde beyaz parıltılar
