@@ -162,14 +162,13 @@
   .layout-a .app-grid {
     display: grid;
     grid-template-columns: 1fr 320px;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto 1fr;
     grid-template-areas:
       "header header"
-      "main cameras"
-      "footer cameras";
+      "main cameras";
     height: 100vh;
     gap: 16px;
-    padding: 16px;
+    padding: 16px 16px 5px 16px; /* alt: ufak parmak boşluğu */
   }
   .layout-a .cameras {
     display: flex;
@@ -235,12 +234,12 @@
   @media (max-width: 768px) {
     .layout-a .app-grid {
       grid-template-columns: 1fr;
-      grid-template-rows: auto auto 1fr auto;
+      grid-template-rows: auto auto 1fr;
       grid-template-areas:
         "header"
         "cameras"
-        "main"
-        "footer";
+        "main";
+      padding: 12px 12px 5px 12px;
     }
     .layout-a .cameras {
       flex-direction: row;
@@ -1340,6 +1339,38 @@
   #wr-join-btn:active { transform: translateY(0) scale(0.99); }
   #wr-mic-btn:hover, #wr-cam-btn:hover { transform: scale(1.1); }
 
+
+  /* ════ SAYFA GEZİNME BUTONLARI (etkinlik alanı köşeleri) ════ */
+  .lesson-nav-btn {
+    position: absolute;
+    bottom: 20px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    z-index: 20;
+    transition: all 0.2s var(--ease-bounce);
+    background: linear-gradient(135deg, var(--tacev-blue), var(--magic-purple));
+    box-shadow: 0 6px 20px rgba(123,97,255,0.4);
+  }
+  .lesson-nav-btn:hover { transform: scale(1.12); box-shadow: 0 10px 28px rgba(123,97,255,0.55); }
+  .lesson-nav-btn:active { transform: scale(0.96); }
+  .lesson-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: #cbd5e1;
+    box-shadow: none;
+  }
+  .lesson-nav-btn:disabled:hover { transform: none; }
+  .lesson-nav-prev { left: 20px; }
+  .lesson-nav-next { right: 20px; }
+
 </style>
 </head>
 <body class="font-sans text-gray-800">
@@ -1528,6 +1559,14 @@
     <div class="absolute bottom-0 left-0 w-64 h-64 pointer-events-none opacity-40" style="background: radial-gradient(circle at bottom left, rgba(10, 143, 255, 0.12), transparent 70%);"></div>
     <div id="activity-area" class="relative z-10 p-6 md:p-10"></div>
 
+    <!-- Sayfa gezinme butonları (sol-alt / sağ-alt köşe) — sadece öğretmen -->
+    <button id="prev-btn" class="lesson-nav-btn lesson-nav-prev" title="Önceki sayfa">
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+    <button id="next-btn" class="lesson-nav-btn lesson-nav-next" title="Sonraki sayfa">
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+
     <!-- BEYAZ TAHTA OVERLAY -->
     <div id="whiteboard-overlay">
       <!-- Sol araç paneli -->
@@ -1617,23 +1656,6 @@
 
 
 
-  <!-- FOOTER (sayfa kontrolü) -->
-  <footer class="flex items-center justify-between px-5 py-3" style="grid-area: footer; background:rgba(255,255,255,0.92); backdrop-filter:blur(10px); border:1px solid rgba(123,97,255,0.15); border-radius:var(--round-md); box-shadow:var(--shadow-soft);">
-    <button id="prev-btn" class="text-sm px-4 py-2 font-bold transition flex items-center gap-2" style="background:white; color:var(--tacev-blue-deep); border:2px solid rgba(10,143,255,0.25); border-radius:var(--round-pill);">
-      <i class="fa-solid fa-arrow-left"></i> Önceki
-    </button>
-
-    <div class="flex-1 mx-6 flex items-center gap-3">
-      <span id="page-count" class="text-sm whitespace-nowrap" style="font-family:var(--font-display); font-weight:700; color:var(--ink);">1 / 6</span>
-      <div class="flex-1 h-2.5 rounded-full" style="background:rgba(123,97,255,0.12);">
-        <div id="progress-fill" class="h-2.5 rounded-full transition-all duration-500" style="width: 16%; background:linear-gradient(90deg, var(--tacev-blue), var(--magic-purple), var(--tacev-pink));"></div>
-      </div>
-    </div>
-
-    <button id="next-btn" class="px-5 py-2 font-bold text-sm transition flex items-center gap-2 text-white" style="background:linear-gradient(135deg, var(--tacev-blue), var(--magic-purple)); border-radius:var(--round-pill); box-shadow:0 4px 14px rgba(123,97,255,0.35);">
-      Sonraki <i class="fa-solid fa-arrow-right"></i>
-    </button>
-  </footer>
 </div>
 
 
@@ -2039,9 +2061,12 @@ async function enterLesson() {
   // Ders bilgisi
   document.getElementById('lesson-info').textContent = `Ders: ${state.room} • ${state.name}`;
 
-  // Öğrenci sayfa düğmelerini ve ilerleme çubuğunu gizle (footer'ın tamamı)
+  // Öğrenci sayfa gezinme butonlarını göremez (sadece öğretmen değiştirir)
   if (state.role !== 'teacher') {
-    document.querySelector('footer').style.display = 'none';
+    const pb = document.getElementById('prev-btn');
+    const nb = document.getElementById('next-btn');
+    if (pb) pb.style.display = 'none';
+    if (nb) nb.style.display = 'none';
   }
 
   await setupFirebase();
@@ -2776,8 +2801,10 @@ function renderActivity() {
   const page = LESSON[state.currentPage];
   const area = document.getElementById('activity-area');
 
-  document.getElementById('page-count').textContent = `${state.currentPage + 1} / ${LESSON.length}`;
-  document.getElementById('progress-fill').style.width = `${((state.currentPage + 1) / LESSON.length) * 100}%`;
+  const pc = document.getElementById('page-count');
+  if (pc) pc.textContent = `${state.currentPage + 1} / ${LESSON.length}`;
+  const pf = document.getElementById('progress-fill');
+  if (pf) pf.style.width = `${((state.currentPage + 1) / LESSON.length) * 100}%`;
   document.getElementById('prev-btn').disabled = state.currentPage === 0;
   document.getElementById('next-btn').disabled = state.currentPage === LESSON.length - 1;
 
