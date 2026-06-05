@@ -1226,6 +1226,22 @@
   .shooting-star.go {
     animation: shootStar 1.1s ease-out forwards;
   }
+
+  /* ════ İMLEÇ PARILTISI (lobi) ════ */
+  .cursor-sparkle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.6) 40%, transparent 70%);
+    animation: cursorSparkleFade 0.8s ease-out forwards;
+    will-change: transform, opacity;
+  }
+  @keyframes cursorSparkleFade {
+    0% { opacity: 1; transform: scale(1) translateY(0); }
+    100% { opacity: 0; transform: scale(0.2) translateY(12px); }
+  }
+
   @keyframes shootStar {
     0% { opacity: 0; transform: translate(0, 0) rotate(var(--angle, 25deg)) scale(0.5); }
     10% { opacity: 1; }
@@ -3064,6 +3080,66 @@ function showError(msg) {
 
 // Sayfa açılınca layout A class'ını body'e ekle
 document.body.classList.add('layout-a');
+
+// ====================================================================
+// İMLEÇ PARILTISI — lobi ekranında fare izinde beyaz parıltılar
+// ====================================================================
+(function initCursorSparkle() {
+  let lastSpawn = 0;
+  const colors = [
+    'rgba(255,255,255,1)',
+    'rgba(255,217,61,0.9)',   // altın
+    'rgba(255,62,165,0.85)',  // pembe
+    'rgba(45,212,191,0.85)',  // turkuaz
+    'rgba(123,97,255,0.85)'   // mor
+  ];
+
+  document.addEventListener('mousemove', (e) => {
+    const wr = document.getElementById('waiting-room');
+    // Sadece bekleme odası (kamera kontrol ekranı) açıkken
+    if (!wr || wr.style.display === 'none') return;
+
+    // Throttle — çok sık üretme (her 30ms'de bir)
+    const now = Date.now();
+    if (now - lastSpawn < 30) return;
+    lastSpawn = now;
+
+    const sparkle = document.createElement('div');
+    sparkle.className = 'cursor-sparkle';
+    const size = 4 + Math.random() * 8;
+    sparkle.style.width = size + 'px';
+    sparkle.style.height = size + 'px';
+    // İmleç civarında hafif rastgele konum
+    sparkle.style.left = (e.clientX + (Math.random() * 16 - 8)) + 'px';
+    sparkle.style.top = (e.clientY + (Math.random() * 16 - 8)) + 'px';
+    // Çoğunlukla beyaz, ara sıra renkli
+    const color = Math.random() < 0.6 ? 'rgba(255,255,255,1)' : colors[Math.floor(Math.random() * colors.length)];
+    sparkle.style.background = `radial-gradient(circle, ${color} 0%, transparent 70%)`;
+    document.body.appendChild(sparkle);
+    setTimeout(() => sparkle.remove(), 800);
+  });
+
+  // Mobil — dokunuşta da parıltı
+  document.addEventListener('touchmove', (e) => {
+    const wr = document.getElementById('waiting-room');
+    if (!wr || wr.style.display === 'none') return;
+    const now = Date.now();
+    if (now - lastSpawn < 40) return;
+    lastSpawn = now;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const sparkle = document.createElement('div');
+    sparkle.className = 'cursor-sparkle';
+    const size = 4 + Math.random() * 8;
+    sparkle.style.width = size + 'px';
+    sparkle.style.height = size + 'px';
+    sparkle.style.left = (touch.clientX + (Math.random() * 16 - 8)) + 'px';
+    sparkle.style.top = (touch.clientY + (Math.random() * 16 - 8)) + 'px';
+    document.body.appendChild(sparkle);
+    setTimeout(() => sparkle.remove(), 800);
+  }, { passive: true });
+})();
+
 
 // ====================================================================
 // KAYAN YILDIZ — 15 saniyede bir (lobi/bekleme odası)
