@@ -355,6 +355,25 @@
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  /* ŞEFFAF MOD — tahta saydamlaşır, arkadaki etkinlik içeriği görünür.
+     Çizim/silgi/metin mekanikleri aynen çalışır (canvas zaten saydam). */
+  #whiteboard-overlay.wb-transparent {
+    background: transparent;
+    box-shadow: none;
+  }
+  #whiteboard-overlay.wb-transparent .wb-canvas-area {
+    background-color: transparent;
+    background-image: none;
+  }
+  /* Araç paneli şeffaf modda hafif saydam + buğulu — arkadaki içerik hafifçe sezilir,
+     ama araçlar net okunur kalır */
+  #whiteboard-overlay.wb-transparent .wb-toolbar {
+    background: linear-gradient(180deg, rgba(30,27,75,0.82), rgba(67,56,202,0.82));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
   #whiteboard-overlay.open {
     display: flex;
@@ -426,7 +445,7 @@
     padding: 12px 0;
     overflow-y: auto;
     flex-shrink: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, background 0.25s ease;
   }
   /* Yetkisiz kullanıcı için araç paneli — aynı görünür, sadece tıklanamaz */
   .wb-toolbar.no-permission {
@@ -496,6 +515,7 @@
       linear-gradient(90deg, rgba(99, 102, 241, 0.06) 1px, transparent 1px);
     background-size: 24px 24px;
     overflow: hidden;
+    transition: background-color 0.25s ease;
   }
   #wb-canvas { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
 
@@ -1579,6 +1599,11 @@
     <div id="whiteboard-overlay">
       <!-- Sol araç paneli -->
       <div class="wb-toolbar">
+        <!-- Şeffaflık (tahtayı saydam yap — arkadaki içerik görünür) -->
+        <button class="wb-tool" data-tool="transparency" title="Şeffaflık — tahtayı saydam yap"><i class="fa-solid fa-circle-half-stroke"></i></button>
+
+        <div class="wb-divider"></div>
+
         <button class="wb-tool active" data-tool="pen" title="Kalem"><i class="fa-solid fa-pen"></i></button>
         <button class="wb-tool" data-tool="eraser" title="Silgi"><i class="fa-solid fa-eraser"></i></button>
         <button class="wb-tool" data-tool="text" title="Metin kutusu"><i class="fa-solid fa-font"></i></button>
@@ -2187,6 +2212,8 @@ async function setupFirebase() {
     applyPraise(data.praise);
     // Beyaz tahta durumu (açık/kapalı)
     applyWhiteboardState(data.whiteboardOpen === true);
+    // Beyaz tahta şeffaflık durumu
+    applyWhiteboardTransparent(data.whiteboardTransparent === true);
     // Beyaz tahta çizim olayları (batch)
     applyWhiteboardBatch(data.whiteboardBatch);
     // Beyaz tahta KRİTİK olayları (clear, snapshot, text) — ayrı kanal
@@ -3512,6 +3539,7 @@ let wbColor = '#1e1b4b';
 let wbSize = 4;
 let wbLastX = 0, wbLastY = 0;
 let wbIsOpen = false;
+let wbTransparent = false; // tahta şeffaf mı? (Firebase ile senkron)
 
 // Undo/Redo geçmişi (canvas snapshot'ları)
 let wbHistory = [];
@@ -3592,6 +3620,10 @@ function initWhiteboard() {
       }
       if (tool === 'redo') {
         if (canUseWhiteboard()) wbRedo();
+        return;
+      }
+      if (tool === 'transparency') {
+        if (canUseWhiteboard()) toggleWhiteboardTransparent();
         return;
       }
       // pen, eraser, text — araç seçimi (yetki gerekir)
@@ -3880,6 +3912,23 @@ async function toggleWhiteboard(open) {
   if (!dbRoomRef) return;
   const { update } = window.fb;
   await update(dbRoomRef, { whiteboardOpen: open });
+}
+
+// Şeffaflık aç/kapa — açık/kapalı durumu gibi Firebase ile senkron,
+// böylece herkes arkadaki etkinlik içeriğini aynı anda görür
+async function toggleWhiteboardTransparent() {
+  if (!dbRoomRef) return;
+  const { update } = window.fb;
+  await update(dbRoomRef, { whiteboardTransparent: !wbTransparent });
+}
+
+// Firebase'den gelen şeffaflık durumunu UI'a uygula (HERKES için)
+function applyWhiteboardTransparent(isTransparent) {
+  wbTransparent = isTransparent === true;
+  const overlay = document.getElementById('whiteboard-overlay');
+  const btn = document.querySelector('.wb-tool[data-tool="transparency"]');
+  if (overlay) overlay.classList.toggle('wb-transparent', wbTransparent);
+  if (btn) btn.classList.toggle('active', wbTransparent);
 }
 
 // Çizim olaylarını biriktir, toplu gönder (gecikme önleme)
