@@ -1399,6 +1399,13 @@
   .lesson-nav-prev { left: 20px; }
   .lesson-nav-next { right: 20px; }
 
+  /* ═══ GÖMÜLÜ DERS (My Family — iframe ile) ═══ */
+  #activity-area.lesson-embed { position: absolute; inset: 0; padding: 0; z-index: 1; }
+  #activity-area.lesson-embed #lesson-frame {
+    display: block; width: 100%; height: 100%;
+    border: 0; border-radius: var(--round-lg); background: #eef1fb;
+  }
+
 </style>
 </head>
 <body class="font-sans text-gray-800">
@@ -1744,60 +1751,12 @@
 // ====================================================================
 // DERS İÇERİĞİ
 // ====================================================================
-const LESSON = [
-  {
-    type: 'fill',
-    title: 'Boşlukları Doldur',
-    instruction: 'Doğru fiil çekimini yazın',
-    template: 'She ___ to school every day. He ___ coffee in the morning.',
-    answers: ['goes', 'drinks']
-  },
-  {
-    type: 'multiple',
-    title: 'Doğru Cevabı Seç',
-    instruction: 'Aşağıdakilerden hangisi doğrudur?',
-    question: 'What ___ you do yesterday?',
-    choices: ['do', 'did', 'does', 'doing'],
-    correct: 1
-  },
-  {
-    type: 'truefalse',
-    title: 'Doğru mu Yanlış mı?',
-    instruction: 'Cümleyi okuyun ve karar verin',
-    statement: '"I have been to Paris three times last year" cümlesi gramer açısından doğrudur.',
-    correct: false,
-    explanation: 'Doğrusu: "I went to Paris three times last year" — geçmiş zaman ifadesi var.'
-  },
-  {
-    type: 'match',
-    title: 'Kelimeleri Eşleştir',
-    instruction: 'İngilizce kelimeleri Türkçe karşılıklarıyla eşleştirin',
-    pairs: [
-      { en: 'wonderful', tr: 'harika' },
-      { en: 'difficult', tr: 'zor' },
-      { en: 'expensive', tr: 'pahalı' },
-      { en: 'comfortable', tr: 'rahat' }
-    ]
-  },
-  {
-    type: 'image',
-    title: 'Resmi İncele',
-    instruction: 'Sahnedeki "the cat" üzerine tıklayın',
-    emoji: '🌳 🐱 🏠 🚗',
-    spots: [
-      { x: '30%', y: '50%', correct: true, label: 'kedi' },
-      { x: '10%', y: '40%', correct: false, label: 'ağaç' },
-      { x: '55%', y: '50%', correct: false, label: 'ev' },
-      { x: '78%', y: '55%', correct: false, label: 'araba' }
-    ]
-  },
-  {
-    type: 'writing',
-    title: 'Yaz Bakalım',
-    instruction: 'En sevdiğiniz mevsim hakkında 3-4 cümle yazın (İngilizce)',
-    prompt: 'Tell me about your favourite season. Why do you like it?'
-  }
-];
+// ── DERS İÇERİĞİ ──────────────────────────────────
+// Eski gömülü 6 soruluk önizleme kaldırıldı. Ders içeriği artık tek
+// dosyalık, kendi motoru (LessonEngine) olan interaktif "My Family"
+// dersinden geliyor ve activity-area içinde bir iframe ile gösterilir.
+// ÖNEMLİ: My_Family.html, index.html ile AYNI klasörde sunulmalı.
+const LESSON_URL = 'My_Family.html';
 
 // ====================================================================
 // STATE
@@ -2857,62 +2816,30 @@ document.getElementById('leave-btn').onclick = async () => {
 // ETKİNLİK RENDER
 // ====================================================================
 function renderActivity() {
-  const page = LESSON[state.currentPage];
+  // ── DERS İÇERİĞİ: gömülü "My Family" dersi ──────────────────
+  // Eski 6 soruluk önizleme kaldırıldı. Ders, kendi motoru (LessonEngine)
+  // olan tek dosyalık interaktif My_Family.html içinden geliyor.
   const area = document.getElementById('activity-area');
+  if (!area) return;
 
-  const pc = document.getElementById('page-count');
-  if (pc) pc.textContent = `${state.currentPage + 1} / ${LESSON.length}`;
-  const pf = document.getElementById('progress-fill');
-  if (pf) pf.style.width = `${((state.currentPage + 1) / LESSON.length) * 100}%`;
-  document.getElementById('prev-btn').disabled = state.currentPage === 0;
-  document.getElementById('next-btn').disabled = state.currentPage === LESSON.length - 1;
+  // Gömülü dersin kendi ileri/geri'si var → platformun eski sayfa
+  // gezinme oklarını gizle (karışmasın).
+  const pb = document.getElementById('prev-btn');
+  const nb = document.getElementById('next-btn');
+  if (pb) pb.style.display = 'none';
+  if (nb) nb.style.display = 'none';
 
-  // Etkinlik tip ikonları
-  const typeIcons = {
-    fill: 'fa-pen-to-square',
-    multiple: 'fa-list-check',
-    truefalse: 'fa-circle-question',
-    match: 'fa-arrows-left-right',
-    image: 'fa-image',
-    writing: 'fa-pen'
-  };
-  const typeLabels = {
-    fill: 'Boşluk Doldurma',
-    multiple: 'Çoktan Seçmeli',
-    truefalse: 'Doğru / Yanlış',
-    match: 'Eşleştirme',
-    image: 'Resme Tıkla',
-    writing: 'Kompozisyon'
-  };
+  // iframe zaten kuruluysa yeniden oluşturma (idempotent — içerik sıfırlanmasın).
+  if (document.getElementById('lesson-frame')) return;
 
-  let html = `
-    <div class="fade-in-up">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="text-[11px] font-extrabold uppercase tracking-wider px-3 py-1.5" style="background:linear-gradient(135deg, rgba(10,143,255,0.12), rgba(123,97,255,0.12)); color:var(--magic-purple); border-radius:var(--round-pill);">
-          <i class="fa-solid ${typeIcons[page.type]} mr-1"></i> ${typeLabels[page.type]}
-        </span>
-        <span class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--ink-soft);">
-          Sayfa ${state.currentPage + 1}
-        </span>
-      </div>
-      <h2 class="text-3xl md:text-4xl mb-2" style="font-family:var(--font-display); font-weight:700; color:var(--ink);">${page.title}</h2>
-      <p class="mb-8 text-base font-semibold" style="color:var(--ink-soft);">${page.instruction}</p>
-  `;
-
-  if (page.type === 'fill') html += renderFill(page);
-  if (page.type === 'multiple') html += renderMultiple(page);
-  if (page.type === 'truefalse') html += renderTrueFalse(page);
-  if (page.type === 'match') html += renderMatch(page);
-  if (page.type === 'image') html += renderImage(page);
-  if (page.type === 'writing') html += renderWriting(page);
-
-  html += '</div>';
-  area.innerHTML = html;
-  attachActivityListeners(page);
-
-  if (state.answers[state.currentPage]) {
-    applyAnswerToUI(state.currentPage, state.answers[state.currentPage]);
-  }
+  area.classList.add('lesson-embed');
+  area.innerHTML = '';
+  const frame = document.createElement('iframe');
+  frame.id = 'lesson-frame';
+  frame.src = LESSON_URL;
+  frame.title = 'My Family — Ders';
+  frame.setAttribute('allow', 'autoplay; fullscreen');
+  area.appendChild(frame);
 }
 
 // === BOŞLUK DOLDURMA ===
@@ -3121,97 +3048,16 @@ function attachActivityListeners(page) {
 // CEVAPLARI UI'A UYGULA
 // ====================================================================
 function applyAnswerToUI(pageIndex, ans) {
-  if (pageIndex !== state.currentPage) return;
-  const page = LESSON[pageIndex];
-
-  if (ans.type === 'fill') {
-    Object.entries(ans.values).forEach(([k, v]) => {
-      const inp = document.querySelector(`.fill-input[data-blank="${k}"]`);
-      if (inp && inp.value !== v) inp.value = v;
-      if (inp && v.trim()) {
-        const correct = v.trim().toLowerCase() === page.answers[k].toLowerCase();
-        inp.classList.toggle('correct', correct);
-        inp.classList.toggle('wrong', !correct);
-      }
-    });
-  }
-
-  if (ans.type === 'multiple') {
-    document.querySelectorAll('.choice-btn').forEach((c, i) => {
-      c.classList.remove('selected', 'correct', 'wrong');
-      if (i === ans.selected) {
-        c.classList.add(i === ans.correct ? 'correct' : 'wrong');
-      } else if (i === ans.correct && ans.selected !== ans.correct) {
-        c.classList.add('correct');
-      }
-    });
-  }
-
-  if (ans.type === 'truefalse') {
-    document.querySelectorAll('.tf-btn').forEach(b => {
-      b.classList.remove('selected-true', 'selected-false');
-      const val = b.dataset.val === 'true';
-      if (val === ans.selected) {
-        b.classList.add(ans.correct === val ? 'selected-true' : 'selected-false');
-      }
-    });
-    const fb = document.getElementById('tf-feedback');
-    const isCorrect = ans.selected === ans.correct;
-    fb.className = 'p-4 rounded-xl text-sm font-bold ' +
-      (isCorrect ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                 : 'bg-red-50 text-red-700 border border-red-200');
-    fb.innerHTML = isCorrect
-      ? '<i class="fa-solid fa-circle-check mr-2"></i> Doğru!'
-      : `<i class="fa-solid fa-circle-xmark mr-2"></i> Yanlış. ${ans.explanation || ''}`;
-  }
-
-  if (ans.type === 'match' && ans.matches) {
-    Object.entries(ans.matches).forEach(([tr, info]) => {
-      const zone = document.querySelector(`.drop-zone[data-tr="${tr}"]`);
-      if (!zone) return;
-      zone.innerHTML = `
-        <span class="bg-indigo-600 text-white px-3 py-1 rounded-lg font-bold text-sm">${info.en}</span>
-        <i class="fa-solid fa-arrow-right text-gray-400"></i>
-        <span class="text-gray-700 font-medium">${tr}</span>
-      `;
-      zone.classList.remove('filled', 'wrong');
-      if (info.correct) zone.classList.add('filled');
-      else {
-        zone.classList.add('wrong', 'shake');
-        setTimeout(() => zone.classList.remove('shake'), 400);
-      }
-    });
-  }
-
-  if (ans.type === 'image') {
-    const spot = document.querySelector(`.clickable-spot[data-idx="${ans.clicked}"]`);
-    if (spot) spot.classList.add(ans.correct ? 'clicked-correct' : 'clicked-wrong');
-  }
-
-  if (ans.type === 'writing') {
-    const ta = document.getElementById('writing-input');
-    if (!ta) return;
-    // ÖNEMLİ: Şu an bu textarea'da yazıyorsam (odaktaysa), DOKUNMA!
-    // Yoksa kendi yazdığım Firebase'den geri gelince imleç bozulur, harfler silinir
-    if (document.activeElement === ta) return;
-    // Sadece karşı taraf yazıyorsa güncelle
-    if (ta.value !== ans.text) {
-      ta.value = ans.text;
-      const wc = document.getElementById('word-count');
-      if (wc) wc.textContent = `${ans.text.trim().split(/\s+/).filter(Boolean).length} kelime`;
-    }
-  }
+  // Gömülü My_Family dersi kendi durumunu yönetir; eski cevap senkronu devre dışı.
+  return;
 }
 
 // ====================================================================
 // SAYFA NAVİGASYONU
 // ====================================================================
-document.getElementById('next-btn').onclick = () => {
-  if (state.currentPage < LESSON.length - 1) changePage(state.currentPage + 1);
-};
-document.getElementById('prev-btn').onclick = () => {
-  if (state.currentPage > 0) changePage(state.currentPage - 1);
-};
+// Sayfa gezinme — gömülü ders kendi ileri/geri'sini yönettiği için bunlar devre dışı.
+document.getElementById('next-btn').onclick = () => {};
+document.getElementById('prev-btn').onclick = () => {};
 
 // ====================================================================
 // HATA TOAST
