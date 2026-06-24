@@ -1773,6 +1773,7 @@ let dbRoomRef = null;
 // === SÖZ VERME + KİLİT SİSTEMİ — global değişkenler (en başta) ===
 let currentActiveStudent = null;
 let activityLocked = false;
+let lessonState = { index: 0, actions: {} };
 let myPresenceId = null;
 
 // ====================================================================
@@ -2148,6 +2149,7 @@ async function setupFirebase() {
   onValue(dbRoomRef, (snap) => {
     const data = snap.val();
     if (!data) return;
+    LessonBridge.handleSnapshot(data);
     if (data.currentPage !== undefined && data.currentPage !== state.currentPage) {
       state.currentPage = data.currentPage;
       renderActivity();
@@ -3563,6 +3565,90 @@ function resizeWhiteboardCanvas() {
 }
 
 // Bu kullanıcı tahtayı kullanabilir mi? (öğretmen VEYA aktif öğrenci VEYA kilit kapalı)
+// ====================================================================
+// GOMULU DERS SENKRONU (iframe <-> Firebase kopru)
+// Ogretmen gezinmeyi surer; izinli kullanici etkilesimi surer; herkes ayna.
+// ====================================================================
+function canInteractLesson() {
+  if (state.role === 'teacher') return true;
+  if (!activityLocked) return true;
+  return !!(currentActiveStudent && currentActiveStudent.name === state.name);
+}
+
+const LessonBridge = (function () {
+  let ready = false, iframeIndex = null, lastSentIndex = null;
+  const forwarded = {};   // blockIndex -> kac aksiyon efektli iletildi
+
+  function frame() { return document.getElementById('lesson-frame'); }
+  function post(msg) {
+    const f = frame();
+    if (f && f.contentWindow) {
+      try { f.contentWindow.postMessage(Object.assign({ __tacevCmd: true }, msg), '*'); } catch (e) {}
+    }
+  }
+  function curIndex() { return (lessonState && typeof lessonState.index === 'number') ? lessonState.index : 0; }
+  function actionsFor(i) {
+    const m = (lessonState && lessonState.actions) || {};
+    const arr = m[i];
+    return Array.isArray(arr) ? arr : [];
+  }
+  function sendRole() {
+    post({ cmd: 'role', canNav: state.role === 'teacher', canInteract: canInteractLesson() });
+  }
+
+  function onMessage(e) {
+    const d = e.data;
+    if (!d || d.__tacevLesson !== true) return;
+    if (d.kind === 'ready') {
+      ready = true;
+      sendRole();
+      lastSentIndex = curIndex();
+      post({ cmd: 'goto', index: curIndex() });
+    } else if (d.kind === 'nav') {
+      if (state.role === 'teacher' && dbRoomRef) {
+        const { update } = window.fb;
+        update(dbRoomRef, { 'lesson/index': d.index });
+      }
+    } else if (d.kind === 'need-catchup') {
+      iframeIndex = d.index;
+      const list = actionsFor(d.index);
+      forwarded[d.index] = list.length;
+      post({ cmd: 'catchup', index: d.index, actions: list });
+    } else if (d.kind === 'action') {
+      if (canInteractLesson() && dbRoomRef) {
+        const { update } = window.fb;
+        const i = curIndex();
+        const list = actionsFor(i).slice();
+        list.push(d.action);
+        update(dbRoomRef, { ['lesson/actions/' + i]: list });
+      }
+    }
+  }
+
+  function handleSnapshot(data) {
+    lessonState = (data && data.lesson) ? data.lesson : { index: 0, actions: {} };
+    if (!ready) return;
+    sendRole();
+    const idx = curIndex();
+    if (idx !== lastSentIndex) {
+      lastSentIndex = idx;
+      post({ cmd: 'goto', index: idx });
+      return;
+    }
+    if (iframeIndex === idx) {
+      const list = actionsFor(idx);
+      const done = forwarded[idx] || 0;
+      if (list.length > done) {
+        post({ cmd: 'live', index: idx, actions: list.slice(done) });
+        forwarded[idx] = list.length;
+      }
+    }
+  }
+
+  window.addEventListener('message', onMessage);
+  return { handleSnapshot: handleSnapshot, sendRole: sendRole };
+})();
+
 function canUseWhiteboard() {
   if (state.role === 'teacher') return true;
   if (!activityLocked) return true; // kilit kapalıysa herkes
