@@ -3577,6 +3577,7 @@ function canInteractLesson() {
 
 const LessonBridge = (function () {
   let ready = false, iframeIndex = null, lastSentIndex = null;
+  let lastEventTs = null;
   const forwarded = {};   // blockIndex -> kac aksiyon efektli iletildi
 
   function frame() { return document.getElementById('lesson-frame'); }
@@ -3614,6 +3615,14 @@ const LessonBridge = (function () {
       const list = actionsFor(d.index);
       forwarded[d.index] = list.length;
       post({ cmd: 'catchup', index: d.index, actions: list });
+    } else if (d.kind === 'event') {
+      if (canInteractLesson() && dbRoomRef) {
+        const { update } = window.fb;
+        const ts = Date.now();
+        lastEventTs = ts;
+        const ev = Object.assign({ ts: ts }, d.ev || {});
+        update(dbRoomRef, { 'lesson/event': ev });
+      }
     } else if (d.kind === 'action') {
       if (canInteractLesson() && dbRoomRef) {
         const { update } = window.fb;
@@ -3629,6 +3638,11 @@ const LessonBridge = (function () {
     lessonState = (data && data.lesson) ? data.lesson : { index: 0, actions: {} };
     if (!ready) return;
     sendRole();
+    const ev = (lessonState && lessonState.event) || null;
+    if (ev && typeof ev.ts === 'number') {
+      if (lastEventTs == null) { lastEventTs = ev.ts; }
+      else if (ev.ts > lastEventTs) { lastEventTs = ev.ts; post({ cmd: 'event', ev: ev }); }
+    }
     const idx = curIndex();
     if (idx !== lastSentIndex) {
       lastSentIndex = idx;
